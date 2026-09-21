@@ -34,6 +34,9 @@
       waste: state.waste,
       nature: state.nature,
       happiness: state.happiness,
+      health: state.health || 0,
+      carbonSeason: state.carbonSeason || 0,
+      carbonTotal: state.carbonTotal || 0,
       energySupply: state.energySupply,
       energyDemand: state.energyDemand,
       inc,
@@ -214,11 +217,11 @@
       t.inputs +
       " fertilizer, pesticides, and nitrogen = $" +
       (t.gross - t.inputs) +
-      " net. Zox regen: $" +
+      " net, nutrition 1×. Zox regen: $" +
       r.gross +
       " gross, $0 chem, graze and manure, $" +
       (r.gross - r.inputs) +
-      " net. Conversion weans the bag over five years. Open Farm models for the three columns."
+      " net, nutrition 6× traditional — that feeds the Health win meter. Conversion weans the bag over five years (~2× nutrition). Open Farm models for the three columns."
     );
   }
 
@@ -236,39 +239,66 @@
 
   function winReply(s) {
     return (
-      "By season " +
-      s.goal.seasons +
-      " you want people ≥ " +
-      s.goal.population +
+      "Win when one season sequesters carbon ≥ " +
+      s.goal.carbonMin +
       " (now " +
-      s.pop +
-      "), waste ≤ " +
-      s.goal.wasteMax +
+      s.carbonSeason +
+      ") AND population health ≥ " +
+      s.goal.healthMin +
       " (now " +
-      s.waste +
-      "), circle ≥ " +
-      s.goal.natureMin +
-      " (now " +
-      s.nature +
-      "), table ≥ " +
-      s.goal.happinessMin +
-      " (now " +
-      s.happiness +
-      "), and the jar above $0 (now $" +
+      s.health +
+      ") AND the jar stays above $0 (now $" +
       s.money +
-      "). Long-term: light the green rail Detroit → Jersey City (" +
+      "). Health climbs because regenerative nutrition is " +
+      (s.goal.nutritionFactor || 6) +
+      "× better than traditional — converting farms are about 2×. Soft loses: broke, waste disaster, or time out at season " +
+      s.goal.seasons +
+      ". Win score is mostly that season's carbon plus health (plus a bit for rail progress and leftover seasons). Rail lit " +
       s.railLit +
       "/" +
       s.railNeed +
-      " segments). Settlement and ecology and cash. Farms do not feed anyone."
+      "."
     );
   }
 
   function carbonReply(s) {
+    const C = Zox.CARBON;
     return (
-      "Carbon credits are a separate cash stream from living lots: converting farms $1, mature regen $4, orchards $3, standing groves a little (capped). Last season credits were $" +
+      "Two different carbons. Sequestration (the win meter) is physical soil lock this season: mature farm +" +
+      C.matureFarm +
+      ", converting +" +
+      C.convertingFarm +
+      ", orchard +" +
+      C.park +
+      ", grove +" +
+      C.grove +
+      " (capped). You need ≥ " +
+      s.goal.carbonMin +
+      " in a single season — now " +
+      s.carbonSeason +
+      " (lifetime " +
+      s.carbonTotal +
+      "). Carbon credits $ are a separate income line from living lots — last season $" +
       (s.inc.credits || 0) +
-      ". They matter. They should not out-earn a mature field."
+      ". Credits buy the next deed; sequestration wins the game."
+    );
+  }
+
+  function healthReply(s) {
+    return (
+      "Health is 0–100 from regenerative nutrition × people on the corridor. Traditional food = 1×. Converting ≈ 2×. Mature Zox regen = " +
+      (s.goal.nutritionFactor || 6) +
+      "×. Orchards add a little. Even with few people, you still need enough regen nutrition on the board for health to climb toward " +
+      s.goal.healthMin +
+      ". Right now health is " +
+      s.health +
+      " with " +
+      s.pop +
+      " people and " +
+      s.mature +
+      " mature farm" +
+      (s.mature === 1 ? "" : "s") +
+      "."
     );
   }
 
@@ -286,13 +316,15 @@
 
   function fallback(s) {
     return (
-      "Ask me about money, Next Season, farms, the rail, LIC, Traditional vs Zox, carbon credits, placing, or the win. Right now: jar $" +
+      "Ask me about money, farms, the rail, LIC, carbon sequestration, health / 6× nutrition, Traditional vs Zox, or the win score. Right now: jar $" +
       s.money +
       ", season " +
       s.season +
-      ", LIC rent $" +
-      s.licRent +
-      " from the city, " +
+      ", carbon this season " +
+      s.carbonSeason +
+      ", health " +
+      s.health +
+      ", " +
       s.farms +
       " field" +
       (s.farms === 1 ? "" : "s") +
@@ -315,8 +347,9 @@
     if (/(traditional|vs|versus|chem|fertiliz|pesticid|nitrogen|farm model|why wait)/.test(t)) return "compare";
     if (/(farm|field|regen|convert|graze|manure|soil|crop)/.test(t)) return "farm";
     if (/(lic|long island|royalt|city|capital|apartment)/.test(t)) return "lic";
-    if (/(carbon|credit|sink)/.test(t)) return "carbon";
-    if (/(win|goal|people|waste|circle|table|season 18)/.test(t)) return "win";
+    if (/(carbon|credit|sink|sequester)/.test(t)) return "carbon";
+    if (/(health|nutrition|6×|6x|healthier)/.test(t)) return "health";
+    if (/(win|goal|score|people|waste|circle|table|season 18)/.test(t)) return "win";
     if (/(creek|water|blue)/.test(t)) return "creek";
     if (/(look|inspect)/.test(t)) return "look";
     if (/(clear|bulldoze|demolish|refund)/.test(t)) return "clear";
@@ -333,6 +366,7 @@
     if (intent === "rail") return railReply(s);
     if (intent === "compare") return compareReply();
     if (intent === "carbon") return carbonReply(s);
+    if (intent === "health") return healthReply(s);
     if (intent === "win") return winReply(s);
     if (intent === "place") return placeReply(s);
     if (intent === "look") return lookReply();
@@ -394,7 +428,7 @@
     if (!log.childElementCount) {
       addLine(
         "bot",
-        "Kitchen table. Ask about the jar, the corridor rail, farms, or LIC rent from the city. I read the live game — not a brochure."
+        "Kitchen table. Ask about the jar, carbon sequestration, health from 6× nutrition, the rail, or LIC rent. I read the live game — not a brochure."
       );
       addLine("you", "What's the long-term goal?");
       addLine("bot", replyFor("What's the rail?", getUi()));

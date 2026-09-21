@@ -105,10 +105,13 @@
 
   const GOAL = {
     seasons: 18,
-    population: 16,
+    carbonMin: 28,
+    healthMin: 75,
+    nutritionFactor: 6,
     wasteMax: 24,
-    natureMin: 70,
-    happinessMin: 56,
+    /* Soft / secondary lose thresholds (not hard win gates) */
+    wasteDisaster: 96,
+    natureCollapse: 6,
   };
 
   const START = {
@@ -116,12 +119,41 @@
     waste: 15,
     nature: 54,
     happiness: 52,
+    health: 42,
+    carbonSeason: 0,
+    carbonTotal: 0,
     season: 1,
   };
 
+  /**
+   * Physical sequestration units per season (win meter) — not $ carbon credits.
+   * Roughly: 2–3 mature farms + orchards/groves clears carbonMin in a season.
+   */
   const CARBON = {
+    matureFarm: 10,
+    convertingFarm: 3,
+    park: 2,
     grove: 1,
-    groveCap: 3,
+    groveCap: 4,
+    /* Money credits (income strip) — separate from sequestration meter */
+    creditMature: 4,
+    creditYoung: 1,
+    creditPark: 3,
+    creditGrove: 1,
+    creditGroveCap: 3,
+  };
+
+  /**
+   * Nutrition quality vs traditional baseline (=1).
+   * Mature Zox regen feeds at nutritionFactor (6×); converting ~2×.
+   * Each farm contributes farmPortions "people-fed" slots at that quality.
+   */
+  const NUTRITION = {
+    traditional: 1,
+    converting: 2,
+    regenerative: 6,
+    farmPortions: 4,
+    parkBonus: 1,
   };
 
   const BOOK = {
@@ -166,7 +198,7 @@
       name: "Zox regenerative",
       gross: 16,
       inputs: 0,
-      note: "No chem bill. Animals graze the cover; manure stays on the lot. That is why the wait pays.",
+      note: "No chem bill. Animals graze the cover; manure stays on the lot. Nutrition is 6× traditional — that is why the wait pays.",
     },
   };
 
@@ -225,16 +257,16 @@
 
   const COPY = {
     title: "ZOX Village",
-    tag: "Detroit to Jersey City — build the green rail",
-    introTitle: "LIC rent. Corridor farms. One future rail.",
+    tag: "Sequester carbon. Feed people 6× better. Light the rail.",
+    introTitle: "LIC rent. Corridor farms. Carbon + health win.",
     intro: [
       "Song royalties already bought a green building in Long Island City. That city rent lands every season — you do not place it on this map.",
-      "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. The dashed green line is the future rail. The long-term goal is to build that rail.",
-      "Loop: LIC capital buys a farm along the corridor → walk the farm → five-season regen → crops and rent buy the next parcel along the line. Mature farms light rail segments solid.",
-      "Grow the settlement, keep waste low, the circle healthy, and the books in the black — before 18 seasons are up.",
+      "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. The dashed green line is the future rail.",
+      "Loop: LIC capital buys a farm along the corridor → walk the farm → five-season regen → crops and rent buy the next parcel along the line. Mature farms sequester carbon and light rail segments solid.",
+      "Win by sequestering enough carbon in a single season and raising population health on 6× regenerative nutrition — before 18 seasons are up. Stay in the black.",
     ],
-    win: "LIC rent paid the corridor, the rail woke up, the circle held, and the books stayed in the black. That is a village.",
-    loseTime: "Eighteen seasons and the corridor is still waiting on you. The books tell the story.",
+    win: "The soil locked carbon this season, and regenerative food made the people healthier — 6× the nutrition of the old chem model. That is a village.",
+    loseTime: "Eighteen seasons and the corridor never hit the carbon and health marks. The books tell the story.",
     loseBroke: "The jar is empty. A town that cannot pay for seed does not last the winter.",
     loseNature: "The circle broke. Dust where the grass should be.",
     loseWaste: "Waste piled past the fence line. Nobody wants to sit down here.",
@@ -247,6 +279,7 @@
   Zox.GOAL = GOAL;
   Zox.START = START;
   Zox.CARBON = CARBON;
+  Zox.NUTRITION = NUTRITION;
   Zox.BOOK = BOOK;
   Zox.LIC = LIC;
   Zox.FARM_MODELS = FARM_MODELS;

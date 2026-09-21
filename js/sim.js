@@ -226,6 +226,9 @@
       waste: Zox.START.waste,
       nature: Zox.START.nature,
       happiness: Zox.START.happiness,
+      health: Zox.START.health,
+      carbonSeason: Zox.START.carbonSeason || 0,
+      carbonTotal: Zox.START.carbonTotal || 0,
       energySupply: 0,
       energyDemand: 0,
       population: 0,
@@ -251,6 +254,8 @@
       waste: state.waste,
       nature: state.nature,
       happiness: state.happiness,
+      health: state.health,
+      carbonSeason: state.carbonSeason,
       population: state.population,
       energySupply: state.energySupply,
       energyDemand: state.energyDemand,
@@ -462,18 +467,57 @@
     return null;
   }
 
+
+  function carbonSeasonUnits(state, parks, groves) {
+    const C = Zox.CARBON;
+    let units = 0;
+    for (let i = 0; i < state.farms.length; i++) {
+      units += farmMature(state.farms[i]) ? C.matureFarm : C.convertingFarm;
+    }
+    units += parks.length * C.park;
+    units += Math.min(C.groveCap, groves.length * C.grove);
+    return Math.round(units);
+  }
+
+  /**
+   * Population health 0–100 from nutrition quality × coverage.
+   * Mature regen = 6× traditional; converting ≈ 2×. Empty corridor still
+   * needs enough regen nutrition on the board to climb.
+   */
+  function computeHealthTarget(state, parks) {
+    const N = Zox.NUTRITION;
+    const factor = Zox.GOAL.nutritionFactor || N.regenerative;
+    let weighted = 0;
+    let portions = 0;
+    for (let i = 0; i < state.farms.length; i++) {
+      const q = farmMature(state.farms[i]) ? N.regenerative : N.converting;
+      weighted += q * N.farmPortions;
+      portions += N.farmPortions;
+    }
+    weighted += parks.length * N.parkBonus;
+    const people = state.population || 0;
+    const meanQ = portions > 0 ? weighted / portions : 0;
+    let adequacy;
+    if (people <= 0) {
+      const needEmpty = N.farmPortions * 2;
+      adequacy = Math.min(1, portions / needEmpty);
+    } else {
+      adequacy = Math.min(1.15, portions / people);
+    }
+    const qualityRatio = meanQ / factor;
+    return clamp(Math.round(qualityRatio * adequacy * 100), 0, 100);
+  }
+
   function evaluateGoals(state) {
     return {
-      population: state.population >= Zox.GOAL.population,
-      waste: state.waste <= Zox.GOAL.wasteMax,
-      nature: state.nature >= Zox.GOAL.natureMin,
-      happiness: state.happiness >= Zox.GOAL.happinessMin,
+      carbon: state.carbonSeason >= Zox.GOAL.carbonMin,
+      health: state.health >= Zox.GOAL.healthMin,
       solvent: state.money > 0,
     };
   }
 
   function goalsMet(flags) {
-    return flags.population && flags.waste && flags.nature && flags.happiness && flags.solvent;
+    return flags.carbon && flags.health && flags.solvent;
   }
 
   function computeScore(state) {
@@ -482,13 +526,11 @@
     return Math.max(
       0,
       Math.round(
-        state.population * 5 +
-          state.nature * 2 +
-          (100 - state.waste) * 2 +
-          state.happiness +
-          state.money * 0.15 +
-          leftover * 10 +
-          rail.lit * 8
+        state.carbonSeason * 5 +
+          state.health * 3 +
+          leftover * 8 +
+          rail.lit * 6 +
+          state.money * 0.1
       )
     );
   }
@@ -500,7 +542,7 @@
       state.wonOnSeason = state.season;
       state.endReason = Zox.COPY.win;
       state.score = computeScore(state);
-      pushLog(state, "The table is full. This is a village.");
+      pushLog(state, "Carbon locked in the soil this season. People are healthier on 6× regen food. This is a village.");
       return;
     }
     if (state.money < 0) {
@@ -509,13 +551,15 @@
       state.score = computeScore(state);
       return;
     }
-    if (state.nature <= 6) {
+    const natureFloor = Zox.GOAL.natureCollapse != null ? Zox.GOAL.natureCollapse : 6;
+    const wasteCeil = Zox.GOAL.wasteDisaster != null ? Zox.GOAL.wasteDisaster : 96;
+    if (state.nature <= natureFloor) {
       state.status = "lost";
       state.endReason = Zox.COPY.loseNature;
       state.score = computeScore(state);
       return;
     }
-    if (state.waste >= 96) {
+    if (state.waste >= wasteCeil) {
       state.status = "lost";
       state.endReason = Zox.COPY.loseWaste;
       state.score = computeScore(state);
@@ -617,8 +661,10 @@
 
     natureDelta += parks.length * Zox.BUILDINGS.park.nature;
     happyDelta += parks.length * Zox.BUILDINGS.park.happy;
-    streams.credits += parks.length * (Zox.BUILDINGS.park.credits || 0);
-    streams.credits += Math.min(Zox.CARBON.groveCap, groves.length * Zox.CARBON.grove);
+    streams.credits += parks.length * (Zox.BUILDINGS.park.credits || Zox.CARBON.creditPark || 0);
+    const groveCredit = Zox.CARBON.creditGrove != null ? Zox.CARBON.creditGrove : Zox.CARBON.grove;
+    const groveCreditCap = Zox.CARBON.creditGroveCap != null ? Zox.CARBON.creditGroveCap : Zox.CARBON.groveCap;
+    streams.credits += Math.min(groveCreditCap, groves.length * groveCredit);
 
     if (people >= 8 && unpowered === 0) {
       streams.other += Math.floor(people / 4) * 2;
@@ -653,6 +699,18 @@
     state.energySupply = energySupply;
     state.energyDemand = energyDemand;
     state.population = people;
+
+    const sequestered = carbonSeasonUnits(state, parks, groves);
+    state.carbonSeason = sequestered;
+    state.carbonTotal = (state.carbonTotal || 0) + sequestered;
+
+    const healthTarget = computeHealthTarget(state, parks);
+    state.health = clamp(
+      Math.round(state.health * 0.35 + healthTarget * 0.65),
+      0,
+      100
+    );
+
     state.lastIncome = streams;
     state.season += 1;
 
@@ -662,6 +720,8 @@
       waste: after.waste - before.waste,
       nature: after.nature - before.nature,
       happiness: after.happiness - before.happiness,
+      health: after.health - before.health,
+      carbon: after.carbonSeason - (before.carbonSeason || 0),
       population: after.population - before.population,
     };
 
@@ -686,13 +746,22 @@
     if (!flavor.length && streams.crops >= 12) {
       flavor.push("The crop check hit the jar and left a little for the next field along the rail.");
     }
+    if (!flavor.length && sequestered >= Zox.GOAL.carbonMin) {
+      flavor.push("Soil locked " + sequestered + " carbon this season — enough to clear the win mark.");
+    }
+    if (!flavor.length && state.health >= Zox.GOAL.healthMin && sequestered >= 12) {
+      flavor.push("People are healthier on regen food. Carbon this season: " + sequestered + ".");
+    }
     if (!flavor.length && streams.credits >= 4) {
-      flavor.push("Carbon credits from the living lots. Not the main course, but they count.");
+      flavor.push("Carbon credits $ from the living lots — separate from sequestration. Soil locked " + sequestered + " this season.");
     }
     if (hubs.length && wasteIn - wasteOut < 1) flavor.push("The heap ate the week's scraps.");
     if (railLive && !flavor.length) flavor.push("The rail made the far lots feel like part of the farm.");
+    if (state.health >= 70 && sequestered >= 16 && !flavor.length) {
+      flavor.push("Health " + state.health + ", carbon sequestered " + sequestered + " this season.");
+    }
     if (state.nature >= 70 && state.waste <= 22 && !flavor.length) flavor.push("Creek's running clearer this week.");
-    if (!flavor.length) flavor.push("Another season. Crops pay for the next field along the line.");
+    if (!flavor.length) flavor.push("Another season. Crops pay for the next field along the line. Carbon " + sequestered + " sequestered.");
     pushLog(state, flavor[0]);
 
     maybeEnd(state);
@@ -701,46 +770,29 @@
 
   function goalProgress(state) {
     const flags = evaluateGoals(state);
-    const rail = railProgress(state);
     return [
       {
-        key: "people",
-        label: "People",
-        have: state.population,
-        need: Zox.GOAL.population,
-        ok: flags.population,
+        key: "carbon",
+        label: "Carbon",
+        have: state.carbonSeason || 0,
+        need: Zox.GOAL.carbonMin,
+        ok: flags.carbon,
         better: "higher",
       },
       {
-        key: "waste",
-        label: "Waste",
-        have: state.waste,
-        need: Zox.GOAL.wasteMax,
-        ok: flags.waste,
-        better: "lower",
-      },
-      {
-        key: "nature",
-        label: "Circle",
-        have: state.nature,
-        need: Zox.GOAL.natureMin,
-        ok: flags.nature,
+        key: "health",
+        label: "Health",
+        have: state.health || 0,
+        need: Zox.GOAL.healthMin,
+        ok: flags.health,
         better: "higher",
       },
       {
-        key: "table",
-        label: "Table",
-        have: state.happiness,
-        need: Zox.GOAL.happinessMin,
-        ok: flags.happiness,
-        better: "higher",
-      },
-      {
-        key: "rail",
-        label: "Rail lit",
-        have: rail.lit,
-        need: rail.need,
-        ok: rail.ready,
+        key: "solvent",
+        label: "Solvent",
+        have: state.money,
+        need: 1,
+        ok: flags.solvent,
         better: "higher",
       },
     ];
@@ -774,5 +826,7 @@
     tilesForView,
     buildingsOf,
     railProgress,
+    carbonSeasonUnits,
+    computeHealthTarget,
   };
 })(window);

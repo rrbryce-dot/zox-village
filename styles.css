@@ -1611,3 +1611,13 @@ body {
 .board {
   border-radius: 8px;
 }
+
+
+/* Carbon sequestration meter label */
+.meter-sub {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.72em;
+  opacity: 0.72;
+  margin-left: 0.25em;
+}

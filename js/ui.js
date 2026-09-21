@@ -106,10 +106,19 @@
 
     function renderMeters() {
       const s = ui.state;
+      const carbonScale = Math.max(40, Zox.GOAL.carbonMin + 8);
       const items = [
         { id: "money", label: "Profit", value: "$" + s.money, raw: s.money, good: s.money >= 40, warn: s.money < 20 },
+        {
+          id: "carbon",
+          label: "Carbon",
+          value: String(s.carbonSeason || 0),
+          raw: s.carbonSeason || 0,
+          max: carbonScale,
+          sub: "sequestered",
+        },
+        { id: "health", label: "Health", value: String(s.health || 0), raw: s.health || 0, max: 100 },
         { id: "waste", label: "Waste", value: String(s.waste), raw: s.waste, invert: true, max: 100 },
-        { id: "nature", label: "Circle", value: String(s.nature), raw: s.nature, max: 100 },
         {
           id: "energy",
           label: "Energy",
@@ -118,7 +127,6 @@
           max: 100,
         },
         { id: "people", label: "People", value: String(s.population), raw: s.population, max: 24 },
-        { id: "happy", label: "Table", value: String(s.happiness), raw: s.happiness, max: 100 },
       ];
 
       const box = el("meters");
@@ -128,20 +136,26 @@
           if (m.invert) pct = 100 - pct;
           let tone = "ok";
           if (m.id === "waste") tone = s.waste <= 22 ? "good" : s.waste < 55 ? "ok" : "bad";
-          else if (m.id === "nature") tone = s.nature >= 70 ? "good" : s.nature < 32 ? "bad" : "ok";
+          else if (m.id === "carbon")
+            tone = (s.carbonSeason || 0) >= Zox.GOAL.carbonMin ? "good" : (s.carbonSeason || 0) < 10 ? "ok" : "ok";
+          else if (m.id === "health")
+            tone = (s.health || 0) >= Zox.GOAL.healthMin ? "good" : (s.health || 0) < 35 ? "bad" : "ok";
           else if (m.id === "energy") tone = s.energySupply >= s.energyDemand ? "good" : s.energyDemand ? "bad" : "ok";
-          else if (m.id === "happy") tone = s.happiness >= 56 ? "good" : s.happiness < 30 ? "bad" : "ok";
-          else if (m.id === "people") tone = s.population >= 16 ? "good" : "ok";
+          else if (m.id === "people") tone = s.population >= 8 ? "good" : "ok";
           else if (m.id === "money") tone = s.money < 0 ? "bad" : s.money < 20 ? "warn" : "ok";
 
-          const delta = s.lastDelta && m.id in mapDelta(s.lastDelta) ? s.lastDelta[mapDeltaKey(m.id)] : null;
+          const delta = s.lastDelta && mapDeltaKey(m.id) ? s.lastDelta[mapDeltaKey(m.id)] : null;
           const dHtml =
             delta && delta !== 0
               ? `<span class="delta ${delta > 0 ? "up" : "down"}">${signed(delta)}</span>`
               : "";
+          const label =
+            m.id === "carbon"
+              ? `${m.label} <em class="meter-sub">sequestered</em>`
+              : m.label;
 
           return `<div class="meter tone-${tone}" data-meter="${m.id}">
-            <div class="meter-top"><span>${m.label}</span><strong>${m.value}</strong>${dHtml}</div>
+            <div class="meter-top"><span>${label}</span><strong>${m.value}</strong>${dHtml}</div>
             <div class="meter-bar" role="presentation"><i style="width:${pct}%"></i></div>
           </div>`;
         })
@@ -170,10 +184,22 @@
     }
 
     function mapDelta(d) {
-      return { money: d.money, waste: d.waste, nature: d.nature, happy: d.happiness, people: d.population };
+      return {
+        money: d.money,
+        waste: d.waste,
+        carbon: d.carbon,
+        health: d.health,
+        people: d.population,
+      };
     }
     function mapDeltaKey(id) {
-      return { money: "money", waste: "waste", nature: "nature", happy: "happiness", people: "population" }[id];
+      return {
+        money: "money",
+        waste: "waste",
+        carbon: "carbon",
+        health: "health",
+        people: "population",
+      }[id];
     }
     function clampPct(n, max) {
       return Math.max(0, Math.min(100, Math.round((n / max) * 100)));
@@ -306,8 +332,14 @@
       const goals = el("goals");
       goals.innerHTML = Zox.Sim.goalProgress(ui.state)
         .map((g) => {
-          const need = g.better === "lower" ? "≤ " + g.need : "≥ " + g.need;
-          return `<li class="${g.ok ? "is-met" : ""}"><span>${g.label}</span> <b>${g.have}</b> <em>${need}</em></li>`;
+          const need =
+            g.key === "solvent"
+              ? "> $0"
+              : g.better === "lower"
+                ? "≤ " + g.need
+                : "≥ " + g.need;
+          const have = g.key === "solvent" ? "$" + g.have : g.have;
+          return `<li class="${g.ok ? "is-met" : ""}"><span>${g.label}</span> <b>${have}</b> <em>${need}</em></li>`;
         })
         .join("");
 
@@ -343,6 +375,7 @@
             <div><dt>Gross</dt><dd>$${live.gross}</dd></div>
             <div><dt>Chem / inputs</dt><dd>${live.inputs ? "−$" + live.inputs : "$0"}</dd></div>
             <div class="net"><dt>Net</dt><dd>$${live.net}</dd></div>
+            <div><dt>Nutrition</dt><dd>${row.id === "regenerative" ? "6×" : row.id === "converting" ? "~2×" : "1×"}</dd></div>
           </dl>
           ${row.id !== "converting" ? `<p class="net-hero">$${live.net}</p>` : ""}
         </article>`;
@@ -352,7 +385,7 @@
         col(trad) +
         col(conv, " is-slim") +
         col(regen, " is-win") +
-        `<p class="quiet compare-punch">Regen nets $${regen.net}. Traditional nets $${trad.net} after the chem bill. That is why the wait pays.</p>`;
+        `<p class="quiet compare-punch">Regen nets $${regen.net} and feeds people at 6× traditional nutrition. Traditional nets $${trad.net} after the chem bill. That is why the wait pays.</p>`;
     }
 
     function renderEnd() {
@@ -364,7 +397,13 @@
       overlay.hidden = false;
       el("end-title").textContent = ui.state.status === "won" ? "The village holds." : "Not this corridor.";
       el("end-body").textContent = ui.state.endReason;
-      el("end-score").textContent = "Score " + ui.state.score;
+      el("end-score").textContent =
+        "Win score " +
+        ui.state.score +
+        " · carbon " +
+        (ui.state.carbonSeason || 0) +
+        " · health " +
+        (ui.state.health || 0);
     }
 
     function render() {
@@ -552,6 +591,7 @@
                 <div><dt>Gross crop</dt><dd>$${row.gross}</dd></div>
                 <div><dt>Input costs</dt><dd>${row.inputs ? "−$" + row.inputs : "$0"}</dd></div>
                 <div class="net"><dt>Net</dt><dd>$${row.net}</dd></div>
+                <div><dt>Nutrition</dt><dd>${row.id === "regenerative" ? "6×" : row.id === "converting" ? "~2×" : "1×"} traditional</dd></div>
               </dl>
               <p>${row.note}</p>
             </article>`;
