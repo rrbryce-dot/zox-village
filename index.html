@@ -126,6 +126,7 @@
               <p id="view-sub" class="view-sub">Long-term goal: build the green rail. Buy farms along the line.</p>
             </div>
             <button type="button" id="back-map" class="btn ghost" hidden>Back to map</button>
+            <button type="button" id="buy-next-farm" class="btn primary buy-next" hidden>Buy next farm on the map</button>
           </div>
           <div class="legend">
             <span><i class="swatch meadow"></i><span id="legend-meadow">Meadow</span></span>
@@ -289,7 +290,10 @@
             <p>The corridor win still needs a strong carbon season and high Health at once — this popup shows every season’s score along the way.</p>
           </div>
         </details>
-        <button type="button" id="season-win-ok" class="btn primary">Keep going</button>
+        <div class="season-win-actions">
+          <button type="button" id="season-buy-next" class="btn primary" hidden>Buy next farm on the map</button>
+          <button type="button" id="season-win-ok" class="btn ghost">Keep going</button>
+        </div>
       </div>
     </div>
 

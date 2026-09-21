@@ -105,6 +105,46 @@
       render();
     }
 
+    function openParcelsLeft() {
+      const list = Zox.CORRIDOR.parcels || [];
+      let n = 0;
+      for (let i = 0; i < list.length; i++) {
+        if (!Zox.Sim.getFarmByParcel(ui.state, list[i].id)) n += 1;
+      }
+      return n;
+    }
+
+    function canAffordNextFarm() {
+      if (ui.state.status !== "playing") return false;
+      if (openParcelsLeft() <= 0) return false;
+      return ui.state.money >= Zox.BUILDINGS.farm.cost;
+    }
+
+    function goBuyNextFarm() {
+      hideSeasonWins();
+      ui.grazing = false;
+      ui.view = "world";
+      ui.farmId = null;
+      ui.selected = null;
+      ui.hover = null;
+      ui.tool = "farm";
+      ui.boardKey = "";
+      const cost = Zox.BUILDINGS.farm.cost;
+      const left = openParcelsLeft();
+      flash(
+        "Jar has $" +
+          ui.state.money +
+          ". Farmland tool is ready — click the next deed along the rail ($" +
+          cost +
+          "). " +
+          left +
+          " open parcel" +
+          (left === 1 ? "" : "s") +
+          " left."
+      );
+      render();
+    }
+
     function renderMeters() {
       const s = ui.state;
       const carbonScale = Math.max(40, Zox.GOAL.carbonMin + 8);
@@ -245,6 +285,21 @@
           ? "Zox regenerative — no chem bill. Improvements stay on this farm. Back to map for the next deed along the rail."
           : "Year " + prog.year + " of " + prog.need + ". Compost, power, rail, orchards, and homes go here.";
         back.hidden = false;
+        const afford = canAffordNextFarm();
+        back.classList.toggle("is-hot", afford);
+        back.textContent = afford ? "Back to map — buy next farm" : "Back to map";
+        const buyBtn = el("buy-next-farm");
+        if (buyBtn) {
+          buyBtn.hidden = !afford;
+          if (afford) {
+            buyBtn.textContent =
+              "Buy farm #" +
+              (ui.state.farms.length + 1) +
+              " on the map ($" +
+              Zox.BUILDINGS.farm.cost +
+              ")";
+          }
+        }
         if (place) place.textContent = "Improvements on this farm";
         if (keys) keys.textContent = "Keys 1–7 pick tools. B back to map. Enter turns the season.";
         if (meadow) meadow.textContent = "Field";
@@ -260,6 +315,21 @@
             rail.need +
             " rail segments lit.";
         back.hidden = true;
+        back.classList.remove("is-hot");
+        back.textContent = "Back to map";
+        const buyBtnW = el("buy-next-farm");
+        if (buyBtnW) {
+          const affordW = canAffordNextFarm();
+          buyBtnW.hidden = !affordW;
+          if (affordW) {
+            buyBtnW.textContent =
+              "Buy farm #" +
+              (ui.state.farms.length + 1) +
+              " — click a deed ($" +
+              Zox.BUILDINGS.farm.cost +
+              ")";
+          }
+        }
         if (place) place.textContent = "What to place";
         if (keys) keys.textContent = "Keys 1–2 pick tools. Click a deed to buy or walk it. Enter turns the season.";
         if (meadow) meadow.textContent = "Meadow";
@@ -530,6 +600,19 @@
       if (grazeEl) grazeEl.textContent = "$" + graze;
       const how = el("score-how");
       if (how) how.open = false;
+      const buyNext = el("season-buy-next");
+      if (buyNext) {
+        const afford = canAffordNextFarm();
+        buyNext.hidden = !afford;
+        if (afford) {
+          buyNext.textContent =
+            "Buy farm #" +
+            (ui.state.farms.length + 1) +
+            " on the map ($" +
+            Zox.BUILDINGS.farm.cost +
+            ")";
+        }
+      }
       card.hidden = false;
     }
 
@@ -628,7 +711,14 @@
       /* score-how uses native <details>/<summary> — no JS click needed */
       el("restart").addEventListener("click", restart);
       el("end-restart").addEventListener("click", restart);
-      el("back-map").addEventListener("click", leaveFarm);
+      el("back-map").addEventListener("click", () => {
+        if (canAffordNextFarm()) goBuyNextFarm();
+        else leaveFarm();
+      });
+      const buyNextFarmBtn = el("buy-next-farm");
+      if (buyNextFarmBtn) buyNextFarmBtn.addEventListener("click", goBuyNextFarm);
+      const seasonBuy = el("season-buy-next");
+      if (seasonBuy) seasonBuy.addEventListener("click", goBuyNextFarm);
       el("play-now").addEventListener("click", () => {
         el("intro").hidden = true;
         try {

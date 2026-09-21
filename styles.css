@@ -1856,3 +1856,32 @@ body {
   text-align: center;
   line-height: 1.25;
 }
+
+
+/* —— Buy next farm along the corridor —— */
+.buy-next {
+  margin-left: 8px;
+  white-space: nowrap;
+  animation: buy-pulse 1.4s ease-in-out infinite;
+}
+#back-map.is-hot {
+  border-color: #2f6a32;
+  color: #2f6a32;
+  font-weight: 700;
+  animation: buy-pulse 1.4s ease-in-out infinite;
+}
+@keyframes buy-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 106, 50, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(47, 106, 50, 0.12); }
+}
+.season-win-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.season-win-actions .btn {
+  margin-top: 0;
+  min-width: 160px;
+}

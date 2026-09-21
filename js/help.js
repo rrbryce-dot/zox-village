@@ -230,7 +230,7 @@
     return (
       (s.view === "farm"
         ? "You're on a farm board. Place compost, power, rail, orchards, and homes here. Back to map (B) buys the next parcel along the corridor."
-        : "Corridor map: buy farmland on a deed marker, then you walk that farm. Improvements are not placed on the corridor.") +
+        : "Corridor map: when the jar hits the farm price, go Back to map and buy the next deed, then you walk that farm. Improvements are not placed on the corridor.") +
       " You do not place the LIC building. Look reads a parcel. Clear lot refunds about half. Selected tool: " +
       tool +
       "."
