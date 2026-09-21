@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ZOX Village</title>
+    <meta
+      name="description"
+      content="Found a small valley town that pays its own way — farms, compost, rail, and a full table."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%234a6b3a' width='32' height='32' rx='6'/%3E%3Cpath fill='%23f4ead3' d='M8 20h16v3H8zm2-7 6-6 6 6v7H10z'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="top">
+        <div class="brand">
+          <p class="eyebrow">Working title</p>
+          <h1>ZOX Village</h1>
+          <p class="tag">A valley that pays its own way</p>
+        </div>
+        <div class="top-actions">
+          <p id="season" class="season">Season 1 of 18</p>
+          <p id="food-note" class="food-note">Settlement is empty.</p>
+          <button type="button" id="chat-toggle" class="btn ghost" aria-expanded="true" aria-controls="zox-chat">Ask ZOX</button>
+          <button type="button" id="restart" class="btn ghost">Restart</button>
+        </div>
+      </header>
+
+      <section id="meters" class="meters" aria-label="Village meters"></section>
+      <section id="income" class="income-strip" aria-label="This season's income"></section>
+      <p id="flash" class="flash" hidden></p>
+
+      <div class="play">
+        <aside class="dock">
+          <h2>What to place</h2>
+          <div id="tools" class="tools"></div>
+          <div class="picked">
+            <p class="kicker">Selected</p>
+            <h3 id="tool-name">Farmland</h3>
+            <p id="tool-cost" class="cost-line">Costs $48</p>
+            <p id="tool-hint" class="hint">Buy the field. Crops pay for the next one.</p>
+          </div>
+          <button type="button" id="farm-models" class="btn ghost wide">Farm models</button>
+          <button type="button" id="next-season" class="btn primary">Next season</button>
+          <p class="keys">Keys 1–8 pick tools. Enter turns the season. M opens farm models.</p>
+        </aside>
+
+        <main class="board">
+          <div class="legend">
+            <span><i class="swatch meadow"></i>Meadow</span>
+            <span><i class="swatch grove"></i>Grove</span>
+            <span><i class="swatch water"></i>Creek</span>
+          </div>
+          <div id="grid" class="grid iso-world" role="grid" aria-label="Valley map"></div>
+        </main>
+
+        <aside class="notes">
+          <section>
+            <h2>This lot</h2>
+            <div id="inspect" class="inspect"></div>
+          </section>
+          <section>
+            <h2>By season 18</h2>
+            <ul id="goals" class="goals"></ul>
+          </section>
+          <section>
+            <h2>Kitchen table</h2>
+            <ul id="log" class="log"></ul>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <aside id="zox-chat" class="zox-chat" aria-label="Ask ZOX">
+      <header class="chat-head">
+        <div>
+          <p class="kicker">Kitchen table</p>
+          <h2>Ask ZOX</h2>
+        </div>
+        <button type="button" id="chat-close" class="btn ghost chat-x" aria-label="Close chat">Close</button>
+      </header>
+      <div id="chat-log" class="chat-log"></div>
+      <div class="chat-chips">
+        <button type="button" data-chip="Why no money?">Why no money?</button>
+        <button type="button" data-chip="How do farms work?">How do farms work?</button>
+        <button type="button" data-chip="What's LIC?">What's LIC?</button>
+        <button type="button" data-chip="Traditional vs Zox">Traditional vs Zox</button>
+      </div>
+      <form id="chat-form" class="chat-form">
+        <label class="visually-hidden" for="chat-input">Ask about the valley</label>
+        <input id="chat-input" type="text" autocomplete="off" placeholder="Ask about the jar, farms, LIC…" />
+        <button type="submit" class="btn primary">Send</button>
+      </form>
+    </aside>
+
+    <div id="intro" class="veil" role="dialog" aria-labelledby="intro-title">
+      <div class="card">
+        <p class="eyebrow">ZOX Village</p>
+        <h2 id="intro-title">The mill is quiet. The creek is not.</h2>
+        <p>You have a tired meadow, a decent creek, and enough seed money to try a town that does not ship its mess downhill.</p>
+        <p>Song royalties already bought a green building in Long Island City — off this map. That city rent lands here every season and buys farmland. This board is the farm section: fields, orchards, rail, compost. Traditional lots keep a chem bill. A Zox field waits five years, then graze and manure do the work and crops buy more land.</p>
+        <p>Grow the settlement to <strong>16 people</strong>. Keep <strong>waste at 24 or under</strong>, the <strong>circle at 70+</strong>, and the <strong>table at 56+</strong> — before <strong>18 seasons</strong> are up. Stay in the black.</p>
+        <button type="button" id="play-now" class="btn primary">Sit down at the table</button>
+      </div>
+    </div>
+
+    <div id="farm-card" class="veil" hidden role="dialog" aria-labelledby="farm-card-title">
+      <div class="card farm-card">
+        <p class="eyebrow">Why wait five years</p>
+        <h2 id="farm-card-title">Traditional vs Zox regenerative</h2>
+        <p>Same season, three books. Harvest is cash. The chem bill is why the old model stays thin.</p>
+        <div id="farm-compare" class="farm-compare"></div>
+        <button type="button" id="farm-card-close" class="btn primary">Back to the valley</button>
+      </div>
+    </div>
+
+    <div id="end-card" class="veil" hidden role="dialog" aria-labelledby="end-title">
+      <div class="card">
+        <h2 id="end-title">The village holds.</h2>
+        <p id="end-body"></p>
+        <p id="end-score" class="score"></p>
+        <button type="button" id="end-restart" class="btn primary">Try another valley</button>
+      </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/sim.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/help.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>
