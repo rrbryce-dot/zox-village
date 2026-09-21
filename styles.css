@@ -47,7 +47,7 @@ body {
   height: 100vh;
   height: 100dvh;
   margin: 0;
-  padding: 6px 8px 6px;
+  padding: 4px 4px 4px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -215,9 +215,9 @@ h1 {
 
 .play {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 220px;
+  grid-template-columns: 150px minmax(0, 1fr) 150px;
   grid-template-areas: "story board notes";
-  gap: 8px;
+  gap: 4px;
   align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
@@ -1226,7 +1226,7 @@ h1 {
 
 @media (max-width: 1100px) {
   .play {
-    grid-template-columns: 200px minmax(0, 1fr) 200px;
+    grid-template-columns: 140px minmax(0, 1fr) 140px;
   }
 }
 
@@ -1526,12 +1526,12 @@ h1 {
 #next-season { margin-top: 6px; padding: 8px 10px; }
 @media (min-width: 1400px) {
   .play {
-    grid-template-columns: 240px minmax(0, 1fr) 240px;
+    grid-template-columns: 160px minmax(0, 1fr) 160px;
   }
 }
 @media (min-width: 1700px) {
   .play {
-    grid-template-columns: 260px minmax(0, 1fr) 260px;
+    grid-template-columns: 170px minmax(0, 1fr) 170px;
   }
 }
 @media (max-height: 820px) {
@@ -1566,6 +1566,48 @@ body {
 }
 @media (max-width: 1100px) {
   .play {
-    grid-template-columns: 180px minmax(0, 1fr) 180px;
+    grid-template-columns: 140px minmax(0, 1fr) 140px;
   }
+}
+
+
+/* —— Fill horizontal — no letterbox —— */
+.board {
+  padding: 6px !important;
+}
+.corridor-map {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  object-fit: cover;
+}
+.corridor-stage {
+  height: 100%;
+  min-height: 0;
+}
+#grid.corridor-world {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.story-dock,
+.notes {
+  padding: 6px !important;
+  font-size: 0.82rem;
+}
+.story-card h2,
+.compare-panel h2 {
+  font-size: 0.95rem !important;
+}
+.story-beats li {
+  font-size: 0.72rem !important;
+  padding: 4px 5px !important;
+}
+.farm-sidebar .farm-col {
+  padding: 5px 6px !important;
+}
+.dock,
+.notes,
+.board {
+  border-radius: 8px;
 }

@@ -365,7 +365,7 @@
       `<i style="width:${rail.pct}%"></i>` +
       `</div>` +
       `</div>` +
-      `<svg class="corridor-map" viewBox="0 12 100 48" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor">` +
+      `<svg class="corridor-map" viewBox="0 14 100 44" preserveAspectRatio="xMidYMid slice" aria-label="Detroit to Jersey City corridor">` +
       `<defs>` +
       `<linearGradient id="landGrad" x1="0" y1="0" x2="1" y2="1">` +
       `<stop offset="0%" stop-color="#8fad5c"/>` +
