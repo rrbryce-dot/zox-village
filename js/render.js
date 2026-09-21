@@ -365,7 +365,7 @@
       `<i style="width:${rail.pct}%"></i>` +
       `</div>` +
       `</div>` +
-      `<svg class="corridor-map" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor">` +
+      `<svg class="corridor-map" viewBox="0 12 100 48" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor">` +
       `<defs>` +
       `<linearGradient id="landGrad" x1="0" y1="0" x2="1" y2="1">` +
       `<stop offset="0%" stop-color="#8fad5c"/>` +
@@ -400,7 +400,7 @@
         .join("") +
       cities +
       parcels +
-      `<text x="50" y="67" text-anchor="middle" class="corridor-caption">Buy farmland along the line · convert · buy next · light the rail</text>` +
+      `<text x="50" y="57" text-anchor="middle" class="corridor-caption">Buy farmland along the line · convert · buy next · light the rail</text>` +
       `</svg>` +
       `</div>`
     );
