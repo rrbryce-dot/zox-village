@@ -32,7 +32,7 @@
       youngNature: 0,
       youngWaste: 3,
       youngCredits: 1,
-      hint: "Buy a parcel on the valley map with LIC capital. You walk that farm next. Soil takes five years to drop the chem bill.",
+      hint: "Buy a parcel on the corridor map with LIC capital. You walk that farm next. Soil takes five years to drop the chem bill.",
     },
     solar: {
       id: "solar",
@@ -127,7 +127,7 @@
   const LIC = {
     name: "LIC green building",
     income: 11,
-    hint: "Already standing in Long Island City — not on this valley map. Rent and royalties arrive each season and buy farmland here.",
+    hint: "Already standing in Long Island City — not on this corridor map. Rent and royalties arrive each season and buy farmland along the rail.",
   };
 
   /**
@@ -174,20 +174,67 @@
     groveCount: 2,
   };
 
-  const FARM_NAMES = ["Westbrook Field", "Porch Acre", "Song Field", "Mill Flat", "North Meadow", "Jake's Parcel"];
+  const FARM_NAMES = [
+    "Monroe Flat",
+    "Sandusky Acre",
+    "Erie Field",
+    "Ashtabula Parcel",
+    "Youngstown Meadow",
+    "Altoona Bench",
+    "Harrisburg Lot",
+    "Princeton Acre",
+  ];
+
+  /**
+   * Aerial corridor: Detroit → Toledo → Cleveland → Pittsburgh → Jersey City.
+   * Coordinates are percent of the map panel (0–100).
+   */
+  const CORRIDOR = {
+    cities: [
+      { id: "detroit", name: "Detroit", x: 6, y: 18, short: "DET" },
+      { id: "toledo", name: "Toledo", x: 18, y: 42, short: "TOL" },
+      { id: "cleveland", name: "Cleveland", x: 36, y: 26, short: "CLE" },
+      { id: "pittsburgh", name: "Pittsburgh", x: 58, y: 48, short: "PIT" },
+      { id: "jersey", name: "Jersey City", x: 92, y: 34, short: "JC" },
+    ],
+    railPath: [
+      { x: 6, y: 18 },
+      { x: 12, y: 28 },
+      { x: 18, y: 42 },
+      { x: 26, y: 36 },
+      { x: 36, y: 26 },
+      { x: 46, y: 34 },
+      { x: 58, y: 48 },
+      { x: 70, y: 40 },
+      { x: 82, y: 36 },
+      { x: 92, y: 34 },
+    ],
+    parcels: [
+      { id: "monroe", name: "Monroe Flat", x: 12, y: 28, order: 0 },
+      { id: "sandusky", name: "Sandusky Acre", x: 26, y: 36, order: 1 },
+      { id: "erie", name: "Erie Field", x: 42, y: 30, order: 2 },
+      { id: "ashtabula", name: "Ashtabula Parcel", x: 48, y: 40, order: 3 },
+      { id: "youngstown", name: "Youngstown Meadow", x: 54, y: 52, order: 4 },
+      { id: "altoona", name: "Altoona Bench", x: 68, y: 42, order: 5 },
+      { id: "harrisburg", name: "Harrisburg Lot", x: 78, y: 38, order: 6 },
+      { id: "princeton", name: "Princeton Acre", x: 86, y: 35, order: 7 },
+    ],
+    goalCopy:
+      "Long-term goal: build the green rail from Detroit to Jersey City. Use LIC rent to buy farmland along the corridor, convert it over five seasons, then buy the next farm along the line. Mature farms light the rail solid.",
+  };
 
   const COPY = {
     title: "ZOX Village",
-    tag: "A valley that pays its own way",
-    introTitle: "The mill is quiet. The creek is not.",
+    tag: "Detroit to Jersey City — build the green rail",
+    introTitle: "LIC rent. Corridor farms. One future rail.",
     intro: [
-      "You have a tired meadow, a decent creek, and enough seed money to try a town that does not ship its mess downhill.",
-      "Song royalties already bought a green building in Long Island City. That city rent lands here every season — you do not place it on this map. This board is the farm section.",
-      "Traditional lots keep buying fertilizer and nitrogen. A Zox field waits five years, then the chem bill hits zero: graze and manure, crops buy more land. Carbon credits from living lots help the jar.",
+      "Song royalties already bought a green building in Long Island City. That city rent lands every season — you do not place it on this map.",
+      "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. The dashed green line is the future rail. The long-term goal is to build that rail.",
+      "Loop: LIC capital buys a farm along the corridor → walk the farm → five-season regen → crops and rent buy the next parcel along the line. Mature farms light rail segments solid.",
       "Grow the settlement, keep waste low, the circle healthy, and the books in the black — before 18 seasons are up.",
     ],
-    win: "LIC rent paid the fields, the circle held, and the books stayed in the black. That is a village.",
-    loseTime: "Eighteen seasons and the valley is still waiting on you. The books tell the story.",
+    win: "LIC rent paid the corridor, the rail woke up, the circle held, and the books stayed in the black. That is a village.",
+    loseTime: "Eighteen seasons and the corridor is still waiting on you. The books tell the story.",
     loseBroke: "The jar is empty. A town that cannot pay for seed does not last the winter.",
     loseNature: "The circle broke. Dust where the grass should be.",
     loseWaste: "Waste piled past the fence line. Nobody wants to sit down here.",
@@ -205,5 +252,6 @@
   Zox.MAP = MAP;
   Zox.FARM_MAP = FARM_MAP;
   Zox.FARM_NAMES = FARM_NAMES;
+  Zox.CORRIDOR = CORRIDOR;
   Zox.COPY = COPY;
 })(window);

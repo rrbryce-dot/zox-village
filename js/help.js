@@ -16,6 +16,7 @@
     const rails = Zox.Sim.buildingsOf(state, "rail").length;
     const inc = state.lastIncome || {};
     const paid = !!(state.lastDelta || state.season > 1);
+    const rail = Zox.Sim.railProgress(state);
     return {
       money: state.money,
       season: state.season,
@@ -43,6 +44,9 @@
       trad: Zox.FARM_MODELS.traditional,
       regen: Zox.FARM_MODELS.regenerative,
       goal: Zox.GOAL,
+      railLit: rail.lit,
+      railNeed: rail.need,
+      railReady: rail.ready,
     };
   }
 
@@ -62,7 +66,7 @@
         s.money +
         " in seed money. Buy farmland ($" +
         s.farmCost +
-        ") on the valley map. You walk that farm next — compost and rail go on the farm board, not the valley."
+        ") on the corridor map along the dashed green rail. You walk that farm next — compost and rail go on the farm board, not the corridor. Long-term: convert, buy the next farm along the line, light the Detroit–Jersey City rail."
       );
     }
     if (s.farms === 0) {
@@ -73,7 +77,7 @@
         (s.inc.net || 0) +
         ". You do not drop an LIC building here. Buy farmland ($" +
         s.farmCost +
-        ") on the valley map, then walk that farm. That city capital is what the fields are for."
+        ") on the corridor map, then walk that farm. That city capital is what the corridor farms are for."
       );
     }
     if (s.farms > 0 && s.mature === 0) {
@@ -92,7 +96,11 @@
         (s.inc.inputs || 0) +
         ", net $" +
         (s.inc.net || 0) +
-        ". Farm models (M) shows why waiting out regen pays."
+        ". When a farm matures, buy the next deed along the rail. Rail lit " +
+        s.railLit +
+        "/" +
+        s.railNeed +
+        "."
       );
     }
     if (s.inc.inputs > 0 && s.inc.cropGross && s.inc.inputs >= s.inc.cropGross * 0.4) {
@@ -109,7 +117,7 @@
         (s.inc.credits || 0) +
         ", jar net $" +
         (s.inc.net || 0) +
-        ". Converting lots wean off fertilizer for five years. Farm models shows Traditional $8 net vs Zox regen $16 with no chem bill."
+        ". Converting lots wean off fertilizer for five years. Then buy the next farm along the corridor."
       );
     }
     if ((s.inc.net || 0) <= 2 && (s.inc.upkeep || 0) > (s.inc.crops || 0) + (s.inc.apartments || 0)) {
@@ -126,7 +134,7 @@
         (s.inc.net || 0) +
         ". The jar is $" +
         s.money +
-        ". Wait the fields out — regen drops the chem bill. LIC rent keeps arriving from the city."
+        ". Wait the fields out — regen drops the chem bill. Then buy the next parcel along the rail."
       );
     }
     return (
@@ -141,26 +149,34 @@
       (s.inc.net || 0) +
       ". The jar is $" +
       s.money +
-      " now — if it feels tight, that cash already bought lots. Farmland is $" +
+      " now. Farmland is $" +
       s.farmCost +
-      ". City capital plus crops buy the next field."
+      ". City capital plus crops buy the next field along the corridor. Rail lit " +
+      s.railLit +
+      "/" +
+      s.railNeed +
+      "."
     );
   }
 
   function farmReply(s) {
     const extra = s.farms
-      ? " On the map: " +
+      ? " On the corridor: " +
         s.mature +
         " regen, " +
         s.converting.length +
         " converting" +
         (s.converting.length ? " (" + farmYearLine(s) + ")" : "") +
+        ". Rail segments lit " +
+        s.railLit +
+        "/" +
+        s.railNeed +
         "."
       : " You haven't bought a field yet.";
     return (
       "Buy farmland for $" +
       s.farmCost +
-      " on the valley map. You then walk that farm — compost, power, rail, orchards, and homes go on its board. For five seasons the farm is converting: thin crop check, shrinking chem bill. At maturity the chem bill hits zero — animals graze the cover, manure stays, net $16. Harvest is cash, not supper." +
+      " on the corridor map (deed markers along the dashed green rail). You then walk that farm — compost, power, rail, orchards, and homes go on its board. For five seasons the farm is converting. At maturity the chem bill hits zero and adjacent mature farms light the corridor rail solid. Loop: convert → buy the next farm along the line → light Detroit to Jersey City." +
       extra +
       (s.view === "farm" && s.farmName ? " You're on " + s.farmName + " now." : "") +
       " Farm models (M) puts Traditional vs Zox side by side."
@@ -169,11 +185,22 @@
 
   function licReply(s) {
     return (
-      "The LIC green building already stands in Long Island City — not on this valley. You cannot place it. Rent and royalties, $" +
+      "The LIC green building already stands in Long Island City — not on this corridor. You cannot place it. Rent and royalties, $" +
       s.licRent +
       " a season, arrive on the income strip as LIC rent." +
       (s.paid ? " Last season that line was $" + (s.inc.apartments || s.licRent) + "." : " Hit Next Season to see the first check.") +
-      " Loop: city capital → buy a farm here → walk it → five-year regen → crops buy more land."
+      " Loop: city capital → buy a farm along the corridor → walk it → five-year regen → crops buy the next farm along the rail."
+    );
+  }
+
+  function railReply(s) {
+    return (
+      "The dashed green line is the future rail from Detroit to Jersey City. That is the long-term goal. Buy farms along the corridor, convert them over five seasons, then buy the next. When two neighboring farms are both mature, the rail segment between them lights solid. Progress: " +
+      s.railLit +
+      " of " +
+      s.railNeed +
+      " segments lit" +
+      (s.railReady ? " — rail ready." : ".")
     );
   }
 
@@ -199,9 +226,9 @@
     const tool = s.tool === "inspect" ? "Look" : s.tool;
     return (
       (s.view === "farm"
-        ? "You're on a farm board. Place compost, power, rail, orchards, and homes here. Back to map (B) buys the next parcel."
-        : "Valley map: buy farmland, then you walk that farm. Improvements are not placed on the valley.") +
-      " Creek stays creek. You do not place the LIC building. Look reads a tile. Clear lot refunds about half. Selected tool: " +
+        ? "You're on a farm board. Place compost, power, rail, orchards, and homes here. Back to map (B) buys the next parcel along the corridor."
+        : "Corridor map: buy farmland on a deed marker, then you walk that farm. Improvements are not placed on the corridor.") +
+      " You do not place the LIC building. Look reads a parcel. Clear lot refunds about half. Selected tool: " +
       tool +
       "."
     );
@@ -229,7 +256,11 @@
       s.happiness +
       "), and the jar above $0 (now $" +
       s.money +
-      "). Settlement and ecology and cash. Farms do not feed anyone."
+      "). Long-term: light the green rail Detroit → Jersey City (" +
+      s.railLit +
+      "/" +
+      s.railNeed +
+      " segments). Settlement and ecology and cash. Farms do not feed anyone."
     );
   }
 
@@ -242,20 +273,20 @@
   }
 
   function lookReply() {
-    return "Look is free. Click a tile and the right panel reads it. On a field you'll see the model — converting or Zox regenerative — plus gross, chem, and net. Creek tiles say leave it.";
+    return "Look is free. Click a deed on the corridor or a lot on a farm. On a field you'll see the model — converting or Zox regenerative — plus gross, chem, and net.";
   }
 
   function clearReply() {
-    return "Clear lot pulls a building and puts about half the timber back in the jar. Use it if you dropped a piece on the wrong meadow. Creek never had a building to pull.";
+    return "Clear lot pulls a building and puts about half the timber back in the jar. Use it on a farm board if you dropped a piece wrong. The corridor map has no improvements to clear — only deeds.";
   }
 
   function creekReply() {
-    return "Blue tiles are the creek. They are not building lots — you'll get “Creek stays creek.” Build on meadow or grove. Clearing a grove hurts the circle.";
+    return "On a farm board, blue tiles are the ditch. They are not building lots. The corridor map is aerial — buy deeds along the rail, not creek tiles.";
   }
 
   function fallback(s) {
     return (
-      "Ask me about money, Next Season, farms, LIC, Traditional vs Zox, carbon credits, placing, or the win. Right now: jar $" +
+      "Ask me about money, Next Season, farms, the rail, LIC, Traditional vs Zox, carbon credits, placing, or the win. Right now: jar $" +
       s.money +
       ", season " +
       s.season +
@@ -267,7 +298,11 @@
       (s.farms === 1 ? "" : "s") +
       " (" +
       s.mature +
-      " regen)."
+      " regen), rail lit " +
+      s.railLit +
+      "/" +
+      s.railNeed +
+      "."
     );
   }
 
@@ -276,6 +311,7 @@
     if (/(money|broke|spend|jar|income|cash|earn|profit|next season|nextseason|no new|nothing|afford)/.test(t)) {
       return "money";
     }
+    if (/(rail|corridor|detroit|jersey|toledo|cleveland|pittsburgh)/.test(t)) return "rail";
     if (/(traditional|vs|versus|chem|fertiliz|pesticid|nitrogen|farm model|why wait)/.test(t)) return "compare";
     if (/(farm|field|regen|convert|graze|manure|soil|crop)/.test(t)) return "farm";
     if (/(lic|long island|royalt|city|capital|apartment)/.test(t)) return "lic";
@@ -284,7 +320,7 @@
     if (/(creek|water|blue)/.test(t)) return "creek";
     if (/(look|inspect)/.test(t)) return "look";
     if (/(clear|bulldoze|demolish|refund)/.test(t)) return "clear";
-    if (/(place|build|click|tool|how do i|how to)/.test(t)) return "place";
+    if (/(place|build|click|tool|how do i|how to|walk)/.test(t)) return "place";
     return "fallback";
   }
 
@@ -294,6 +330,7 @@
     if (intent === "money") return moneyReply(s);
     if (intent === "farm") return farmReply(s);
     if (intent === "lic") return licReply(s);
+    if (intent === "rail") return railReply(s);
     if (intent === "compare") return compareReply();
     if (intent === "carbon") return carbonReply(s);
     if (intent === "win") return winReply(s);
@@ -357,12 +394,12 @@
     if (!log.childElementCount) {
       addLine(
         "bot",
-        "Kitchen table. Ask about the jar, Next Season, farms, or LIC rent from the city. I read the live valley — not a brochure."
+        "Kitchen table. Ask about the jar, the corridor rail, farms, or LIC rent from the city. I read the live game — not a brochure."
       );
+      addLine("you", "What's the long-term goal?");
+      addLine("bot", replyFor("What's the rail?", getUi()));
       addLine("you", "What's LIC?");
       addLine("bot", replyFor("What's LIC?", getUi()));
-      addLine("you", "I hit Next Season and don't see new money.");
-      addLine("bot", replyFor("I hit Next Season and don't see new money.", getUi()));
     }
 
     form.addEventListener("submit", (e) => {

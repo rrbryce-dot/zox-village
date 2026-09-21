@@ -6,7 +6,7 @@
     <title>ZOX Village</title>
     <meta
       name="description"
-      content="Found a small valley town that pays its own way — farms, compost, rail, and a full table."
+      content="Detroit to Jersey City aerial corridor — buy farms along the future green rail, convert, light the line."
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%234a6b3a' width='32' height='32' rx='6'/%3E%3Cpath fill='%23f4ead3' d='M8 20h16v3H8zm2-7 6-6 6 6v7H10z'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="styles.css" />
@@ -17,7 +17,7 @@
         <div class="brand">
           <p class="eyebrow">Working title</p>
           <h1>ZOX Village</h1>
-          <p class="tag">A valley that pays its own way</p>
+          <p class="tag">Detroit to Jersey City — build the green rail</p>
         </div>
         <div class="top-actions">
           <p id="season" class="season">Season 1 of 18</p>
@@ -78,7 +78,7 @@
               <li><b>Jake owns ZOX.</b> Same Jake from the porch book — Jacob Westbrook.</li>
               <li><b>Decades in Long Island City.</b> ZOX built sustainable apartments there. That city building is still standing — off this map.</li>
               <li><b>Rent funds this farm section.</b> LIC capital lands here every season. You do not place LIC as a tile.</li>
-              <li><b>Now the farm.</b> Buy farmland on the valley, walk that farm, and convert it to regenerative farming. Five years, the chem bill drops.</li>
+              <li><b>Now the corridor.</b> Buy farmland along Detroit → Jersey City, walk that farm, convert five seasons, then buy the next along the rail. Mature farms light the line solid.</li>
             </ol>
           </section>
           <h2 id="place-head" class="place-head">What to place</h2>
@@ -96,8 +96,8 @@
         <main class="board">
           <div class="board-bar">
             <div>
-              <p id="view-title" class="view-title">Valley map</p>
-              <p id="view-sub" class="view-sub">Buy farmland with LIC capital.</p>
+              <p id="view-title" class="view-title">Corridor map</p>
+              <p id="view-sub" class="view-sub">Long-term goal: build the green rail. Buy farms along the line.</p>
             </div>
             <button type="button" id="back-map" class="btn ghost" hidden>Back to map</button>
           </div>
@@ -106,7 +106,7 @@
             <span><i class="swatch grove"></i>Grove</span>
             <span><i class="swatch water"></i>Creek</span>
           </div>
-          <div id="grid" class="grid iso-world" role="grid" aria-label="Valley map"></div>
+          <div id="grid" class="grid corridor-world" role="grid" aria-label="Detroit to Jersey City corridor"></div>
         </main>
 
         <aside class="notes">
@@ -172,13 +172,14 @@
       <div class="chat-chips">
         <button type="button" data-chip="Why no money?">Why no money?</button>
         <button type="button" data-chip="How do farms work?">How do farms work?</button>
+        <button type="button" data-chip="What is the rail goal?">Rail goal?</button>
         <button type="button" data-chip="Walk the farm?">Walk the farm?</button>
         <button type="button" data-chip="What's LIC?">What's LIC?</button>
         <button type="button" data-chip="Traditional vs Zox">Traditional vs Zox</button>
       </div>
       <form id="chat-form" class="chat-form">
-        <label class="visually-hidden" for="chat-input">Ask about the valley</label>
-        <input id="chat-input" type="text" autocomplete="off" placeholder="Ask about the jar, farms, LIC…" />
+        <label class="visually-hidden" for="chat-input">Ask about the corridor</label>
+        <input id="chat-input" type="text" autocomplete="off" placeholder="Ask about the jar, rail, farms, LIC…" />
         <button type="submit" class="btn primary">Send</button>
       </form>
     </aside>
@@ -186,9 +187,9 @@
     <div id="intro" class="veil" role="dialog" aria-labelledby="intro-title">
       <div class="card">
         <p class="eyebrow">ZOX Village</p>
-        <h2 id="intro-title">The mill is quiet. The creek is not.</h2>
-        <p>You have a tired meadow, a decent creek, and enough seed money to try a town that does not ship its mess downhill.</p>
-        <p>Song royalties already bought a green building in Long Island City — off this map. That city rent lands here every season and buys farmland. Purchase a parcel and you walk onto that farm. Compost, power, rail, orchards, and homes go on the farm board — not scattered on the valley. Traditional lots keep a chem bill. A Zox farm waits five years, then graze and manure do the work and crops buy more land.</p>
+        <h2 id="intro-title">LIC rent. Corridor farms. One future rail.</h2>
+        <p>Song royalties already bought a green building in Long Island City — off this map. That city rent lands every season.</p>
+        <p>This board is the aerial corridor from Detroit down toward Toledo and east to Jersey City. The dashed green line is the future rail. <strong>Long-term goal: build that rail.</strong> Loop: buy a farm along the corridor → walk it → five-season regen → crops and LIC rent buy the next parcel along the line. Mature neighboring farms light rail segments solid. Compost, power, orchards, and homes go on the farm board — not on the corridor.</p>
         <p>Grow the settlement to <strong>16 people</strong>. Keep <strong>waste at 24 or under</strong>, the <strong>circle at 70+</strong>, and the <strong>table at 56+</strong> — before <strong>18 seasons</strong> are up. Stay in the black.</p>
         <button type="button" id="play-now" class="btn primary">Sit down at the table</button>
       </div>
@@ -200,7 +201,7 @@
         <h2 id="farm-card-title">Traditional vs Zox regenerative</h2>
         <p>Same season, three books. Harvest is cash. The chem bill is why the old model stays thin.</p>
         <div id="farm-compare" class="farm-compare"></div>
-        <button type="button" id="farm-card-close" class="btn primary">Back to the valley</button>
+        <button type="button" id="farm-card-close" class="btn primary">Back to the corridor</button>
       </div>
     </div>
 
@@ -209,7 +210,7 @@
         <h2 id="end-title">The village holds.</h2>
         <p id="end-body"></p>
         <p id="end-score" class="score"></p>
-        <button type="button" id="end-restart" class="btn primary">Try another valley</button>
+        <button type="button" id="end-restart" class="btn primary">Try another corridor</button>
       </div>
     </div>
 

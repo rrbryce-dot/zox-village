@@ -1260,3 +1260,174 @@ h1 {
     min-height: 300px;
   }
 }
+
+/* —— Aerial corridor map (world view) —— */
+.board.is-corridor {
+  background:
+    linear-gradient(180deg, rgba(244, 234, 211, 0.35), transparent 40%),
+    var(--panel, #f3ebd8);
+}
+
+#grid.corridor-world {
+  display: block;
+  min-height: 320px;
+  height: auto !important;
+  overflow: visible;
+  padding: 0;
+}
+
+.corridor-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.corridor-banner {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #2f6a32, #4a7a38 55%, #3f5c34);
+  color: #f4ead3;
+  box-shadow: 0 2px 8px rgba(40, 50, 20, 0.22);
+}
+
+.corridor-banner strong {
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.corridor-banner span {
+  font-size: 0.78rem;
+  opacity: 0.92;
+}
+
+.rail-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(244, 234, 211, 0.22);
+  overflow: hidden;
+}
+
+.rail-meter i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c9e86a, #f0f5a8);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.corridor-map {
+  width: 100%;
+  height: auto;
+  min-height: 280px;
+  max-height: 420px;
+  border-radius: 14px;
+  border: 2px solid #5a7040;
+  box-shadow:
+    inset 0 0 0 1px rgba(244, 234, 211, 0.35),
+    0 8px 24px rgba(40, 50, 20, 0.18);
+  background: #7a9a52;
+  cursor: default;
+}
+
+.corridor-map .city-label {
+  font-size: 2.6px;
+  font-weight: 700;
+  fill: #1e2a14;
+  paint-order: stroke;
+  stroke: rgba(244, 234, 211, 0.85);
+  stroke-width: 0.5px;
+}
+
+.corridor-map .corridor-caption {
+  font-size: 2.2px;
+  fill: #243018;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.corridor-parcel {
+  cursor: pointer;
+}
+
+.corridor-parcel .parcel-deed {
+  fill: #e8d9a8;
+  stroke: #5a4018;
+  stroke-width: 0.35;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.corridor-parcel.is-open .parcel-deed {
+  fill: #f4ead3;
+  stroke: #3f6d32;
+  stroke-dasharray: 0.8 0.5;
+}
+
+.corridor-parcel.is-owned .parcel-deed {
+  fill: #c9a24a;
+  stroke: #5a4018;
+  stroke-dasharray: none;
+}
+
+.corridor-parcel.is-mature .parcel-deed {
+  fill: #6b9a40;
+  stroke: #2f4a20;
+}
+
+.corridor-parcel .parcel-name {
+  font-size: 1.9px;
+  font-weight: 700;
+  fill: #1e2a14;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(244, 234, 211, 0.9);
+  stroke-width: 0.45px;
+}
+
+.corridor-parcel .parcel-badge {
+  font-size: 1.7px;
+  font-weight: 700;
+  fill: #3f5c34;
+  pointer-events: none;
+}
+
+.corridor-parcel.is-mature .parcel-badge {
+  fill: #1e3a14;
+}
+
+.corridor-parcel.is-hover .parcel-deed,
+.corridor-parcel:hover .parcel-deed {
+  stroke-width: 0.7;
+  filter: brightness(1.08);
+}
+
+.corridor-parcel.is-picked .parcel-deed {
+  stroke: #f4ead3;
+  stroke-width: 0.85;
+}
+
+.corridor-parcel.can-buy .parcel-deed {
+  fill: #d7ef9a;
+  stroke: #2f6a32;
+}
+
+.corridor-parcel.no-buy .parcel-deed {
+  fill: #c4b48a;
+  opacity: 0.75;
+}
+
+.rail-future {
+  opacity: 0.95;
+}
+
+.rail-lit {
+  filter: drop-shadow(0 0 0.8px #c9e86a);
+}
+
+@media (max-width: 980px) {
+  .corridor-map {
+    min-height: 240px;
+  }
+}

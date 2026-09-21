@@ -1,5 +1,5 @@
 /**
- * Isometric valley board. Visual only — no rules.
+ * Board rendering: aerial corridor (world) + isometric farm zoom.
  */
 (function (global) {
   const Zox = (global.Zox = global.Zox || {});
@@ -23,15 +23,24 @@
   }
 
   function boardKey(tiles, ui) {
+    if (ui && ui.view === "world") {
+      let key = "corridor:";
+      const rail = Zox.Sim.railProgress(ui.state);
+      key += rail.lit + ":" + rail.ownedCount + ":" + rail.matureCount + ":";
+      const farms = ui.state.farms || [];
+      for (let i = 0; i < farms.length; i++) {
+        key += farms[i].parcelId + "A" + (farms[i].regenAge || 0) + ";";
+      }
+      if (ui.selected && ui.selected.parcelId) key += "S" + ui.selected.parcelId;
+      if (ui.hover && ui.hover.parcelId) key += "H" + ui.hover.parcelId;
+      key += "T" + (ui.tool || "");
+      return key;
+    }
     let key = (ui && ui.view ? ui.view : "world") + ":" + (ui && ui.farmId ? ui.farmId : "") + ":" + tiles.length;
     for (let r = 0; r < tiles.length; r++) {
       for (let c = 0; c < tiles[r].length; c++) {
         const t = tiles[r][c];
         key += (t.terrain[0] || "?") + (t.building ? t.building[0] : ".") + (t.landmark ? t.landmark[0] : "");
-        if (t.building === "farm" && ui) {
-          const farm = Zox.Sim.getFarm(ui.state, t.farmId);
-          key += farm ? String(farm.regenAge || 0) : "0";
-        }
       }
     }
     if (ui && ui.view === "farm") {
@@ -50,10 +59,6 @@
     const parts = ["iso-tile", "is-" + tile.terrain];
     if (tile.building) parts.push("has-" + tile.building);
     if (tile.landmark === "barn") parts.push("has-barn");
-    if (tile.building === "farm") {
-      const farm = Zox.Sim.getFarm(ui.state, tile.farmId);
-      parts.push(farm && Zox.Sim.farmMature(farm) ? "is-mature" : "is-young");
-    }
     if (ui.view === "farm" && !tile.building && tile.terrain === "meadow") parts.push("is-field");
     if (ui.hover && ui.hover.r === tile.r && ui.hover.c === tile.c) parts.push("is-hover");
     if (ui.selected && ui.selected.r === tile.r && ui.selected.c === tile.c) parts.push("is-picked");
@@ -64,9 +69,7 @@
       if (near) parts.push("in-loop");
     }
     if (ui.hover && ui.hover.r === tile.r && ui.hover.c === tile.c) {
-      if (ui.view === "world" && tile.building === "farm" && ui.tool !== "inspect") {
-        parts.push("can-drop");
-      } else if (ui.tool !== "inspect" && ui.tool !== "bulldoze") {
+      if (ui.tool !== "inspect" && ui.tool !== "bulldoze") {
         const farmId = ui.view === "farm" ? ui.farmId : null;
         const check = Zox.Sim.canPlace(ui.state, tile.r, tile.c, ui.tool, farmId);
         parts.push(check.ok ? "can-drop" : "no-drop");
@@ -132,23 +135,6 @@
         `<path class="farm-crop" d="M30 32 q2-10 4-10 q2 0 3 10" fill="#5d8a38"/>` +
         `<path class="farm-crop" d="M36 34 q2-9 4-9 q2 0 2 9" fill="#6d9a40"/>` +
         `<path class="farm-crop" d="M12 36 q2-8 3-8 q2 0 3 8" fill="#4f7a30"/>` +
-        `</svg>`
-      );
-    }
-    if (id === "apartment") {
-      return (
-        `<svg class="piece piece-apt" viewBox="0 0 48 68" aria-hidden="true">` +
-        `<ellipse cx="24" cy="62" rx="14" ry="3.4" fill="rgba(40,30,10,.25)"/>` +
-        `<path d="M10 22 L24 28 L24 58 L10 52 Z" fill="#c4b48a"/>` +
-        `<path d="M24 28 L38 22 L38 52 L24 58 Z" fill="#e4d4b0"/>` +
-        `<path d="M10 22 L24 12 L38 22 L24 28 Z" fill="#3f6d32"/>` +
-        `<path d="M24 12 L38 22 L24 28 Z" fill="#4f8640"/>` +
-        `<path d="M16 14 L20 16 L20 20 L16 18 Z" fill="#6d9a40"/>` +
-        `<path d="M14 34 L18 36 L18 40 L14 38 Z" fill="#7ec8d4"/>` +
-        `<path d="M14 42 L18 44 L18 48 L14 46 Z" fill="#7ec8d4"/>` +
-        `<path d="M28 32 L32 30 L32 34 L28 36 Z" fill="#6bb8c4"/>` +
-        `<path d="M28 40 L32 38 L32 42 L28 44 Z" fill="#6bb8c4"/>` +
-        `<text x="24" y="55" text-anchor="middle" fill="#3f5c34" font-size="6" font-weight="700">LIC</text>` +
         `</svg>`
       );
     }
@@ -244,12 +230,6 @@
     const p = pos(tile.r, tile.c, size, tw, th, head);
     const farmView = ui.view === "farm";
     let label = tile.building ? Zox.BUILDINGS[tile.building].name : Zox.Map.describeTerrain(tile.terrain);
-    if (tile.building === "farm") {
-      const farm = Zox.Sim.getFarm(ui.state, tile.farmId);
-      if (farm) {
-        label = farm.name + (Zox.Sim.farmMature(farm) ? ", regen" : ", year " + Zox.Sim.farmProgress(farm).year + " of 5");
-      }
-    }
     if (tile.landmark === "barn") label = "Farmhouse";
     const banks = bankBits(tiles, tile.r, tile.c);
     const seed = tile.r * 12 + tile.c;
@@ -284,12 +264,11 @@
     };
   }
 
-  function worldHTML(tiles, ui) {
+  function farmHTML(tiles, ui) {
     const size = tiles.length;
-    const zoom = ui.view === "farm";
-    const tw = zoom ? 70 : TW;
-    const th = zoom ? 35 : TH;
-    const head = zoom ? 44 : HEAD;
+    const tw = 70;
+    const th = 35;
+    const head = 44;
     const dim = stageSize(size, tw, th, head);
     const cells = [];
     const order = [];
@@ -307,15 +286,155 @@
     );
   }
 
+  function pathD(points) {
+    if (!points.length) return "";
+    let d = "M " + points[0].x + " " + points[0].y;
+    for (let i = 1; i < points.length; i++) {
+      d += " L " + points[i].x + " " + points[i].y;
+    }
+    return d;
+  }
+
+  function corridorHTML(ui) {
+    const C = Zox.CORRIDOR;
+    const rail = Zox.Sim.railProgress(ui.state);
+    const cost = Zox.BUILDINGS.farm.cost;
+    const pathPts = C.railPath;
+    const fullPath = pathD(pathPts);
+
+    // Lit segments: connect consecutive mature parcel positions
+    const litPaths = [];
+    for (let i = 0; i < rail.segments.length; i++) {
+      if (!rail.segments[i].lit) continue;
+      const a = C.parcels.find((p) => p.id === rail.segments[i].from);
+      const b = C.parcels.find((p) => p.id === rail.segments[i].to);
+      if (a && b) litPaths.push("M " + a.x + " " + a.y + " L " + b.x + " " + b.y);
+    }
+
+    const cities = C.cities
+      .map(
+        (city) =>
+          `<g class="corridor-city" transform="translate(${city.x} ${city.y})">` +
+          `<circle r="1.8" fill="#f4ead3" stroke="#3f5c34" stroke-width="0.4"/>` +
+          `<text x="0" y="-3.2" text-anchor="middle" class="city-label">${city.name}</text>` +
+          `</g>`
+      )
+      .join("");
+
+    const parcels = C.parcels
+      .map((parcel) => {
+        const farm = Zox.Sim.getFarmByParcel(ui.state, parcel.id);
+        const owned = !!farm;
+        const mature = owned && Zox.Sim.farmMature(farm);
+        const prog = owned ? Zox.Sim.farmProgress(farm) : null;
+        const sel = ui.selected && ui.selected.parcelId === parcel.id;
+        const hov = ui.hover && ui.hover.parcelId === parcel.id;
+        let cls = "corridor-parcel";
+        if (owned) cls += mature ? " is-mature" : " is-owned";
+        else cls += " is-open";
+        if (sel) cls += " is-picked";
+        if (hov) cls += " is-hover";
+        if (!owned && ui.tool === "farm" && ui.state.money >= cost) cls += " can-buy";
+        if (!owned && ui.tool === "farm" && ui.state.money < cost) cls += " no-buy";
+        const label = owned
+          ? farm.name + (mature ? " (regen)" : " (y" + prog.year + "/5)")
+          : parcel.name + " — $" + cost;
+        const badgeText = owned ? (mature ? "regen" : prog.year + "/5") : ("$" + cost);
+        return (
+          `<g class="${cls}" data-parcel="${parcel.id}" role="button" tabindex="0" aria-label="${label}">` +
+          `<title>${label}</title>` +
+          `<circle class="parcel-hit" r="4.5" cx="${parcel.x}" cy="${parcel.y}" fill="transparent"/>` +
+          `<rect class="parcel-deed" x="${parcel.x - 2.2}" y="${parcel.y - 2.2}" width="4.4" height="4.4" rx="0.6" transform="rotate(12 ${parcel.x} ${parcel.y})"/>` +
+          `<text class="parcel-name" x="${parcel.x}" y="${parcel.y - 3.6}" text-anchor="middle">${parcel.name}</text>` +
+          `<text class="parcel-badge" x="${parcel.x}" y="${parcel.y + 5.2}" text-anchor="middle">${badgeText}</text>` +
+          `</g>`
+        );
+      })
+      .join("");
+
+    const meterLabel = rail.ready
+      ? "Green rail ready — Detroit to Jersey City"
+      : "Rail progress " + rail.lit + " / " + rail.need + " segments lit · " + rail.matureCount + " mature farms";
+
+    return (
+      `<div class="corridor-stage">` +
+      `<div class="corridor-banner">` +
+      `<strong>Future green rail — Detroit to Jersey City</strong>` +
+      `<span>${meterLabel}</span>` +
+      `<div class="rail-meter" role="progressbar" aria-valuenow="${rail.pct}" aria-valuemin="0" aria-valuemax="100">` +
+      `<i style="width:${rail.pct}%"></i>` +
+      `</div>` +
+      `</div>` +
+      `<svg class="corridor-map" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor">` +
+      `<defs>` +
+      `<linearGradient id="landGrad" x1="0" y1="0" x2="1" y2="1">` +
+      `<stop offset="0%" stop-color="#8fad5c"/>` +
+      `<stop offset="35%" stop-color="#a8c46e"/>` +
+      `<stop offset="70%" stop-color="#7a9a52"/>` +
+      `<stop offset="100%" stop-color="#6b8a49"/>` +
+      `</linearGradient>` +
+      `<linearGradient id="lakeGrad" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0%" stop-color="#6bb8c4"/>` +
+      `<stop offset="100%" stop-color="#3a7a88"/>` +
+      `</linearGradient>` +
+      `<filter id="soft"><feGaussianBlur stdDeviation="0.6"/></filter>` +
+      `</defs>` +
+      `<rect width="100" height="70" fill="url(#landGrad)"/>` +
+      /* Great Lakes stylized blobs */
+      `<ellipse cx="22" cy="8" rx="28" ry="10" fill="url(#lakeGrad)" opacity="0.85"/>` +
+      `<ellipse cx="48" cy="4" rx="18" ry="6" fill="url(#lakeGrad)" opacity="0.7"/>` +
+      `<ellipse cx="8" cy="48" rx="10" ry="14" fill="url(#lakeGrad)" opacity="0.55"/>` +
+      /* Appalachian / ridge texture */
+      `<path d="M52 58 Q62 48 72 52 T92 46" fill="none" stroke="#5a7040" stroke-width="3" opacity="0.35" filter="url(#soft)"/>` +
+      `<path d="M40 62 Q55 55 70 58 T95 50" fill="none" stroke="#4a6034" stroke-width="2" opacity="0.3"/>` +
+      /* Midwest fields hatch */
+      `<g opacity="0.18" stroke="#4a6030" stroke-width="0.25">` +
+      `<path d="M4 30 H34 M4 34 H32 M6 38 H30 M8 42 H28"/>` +
+      `<path d="M30 50 H55 M32 54 H58 M34 58 H60"/>` +
+      `</g>` +
+      /* Future dashed rail */
+      `<path class="rail-future" d="${fullPath}" fill="none" stroke="#2f6a32" stroke-width="1.1" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>` +
+      /* Lit solid segments */
+      litPaths
+        .map((d) => `<path class="rail-lit" d="${d}" fill="none" stroke="#c9e86a" stroke-width="1.8" stroke-linecap="round"/>`)
+        .join("") +
+      cities +
+      parcels +
+      `<text x="50" y="67" text-anchor="middle" class="corridor-caption">Buy farmland along the line · convert · buy next · light the rail</text>` +
+      `</svg>` +
+      `</div>`
+    );
+  }
+
+  function worldHTML(tiles, ui) {
+    if (ui.view === "world") return corridorHTML(ui);
+    return farmHTML(tiles, ui);
+  }
+
   function syncFlags(grid, ui) {
-    const tiles = boardTiles(ui);
+    if (ui.view === "world") {
+      // Corridor re-renders via boardKey; light class sync on parcels
+      const nodes = grid.querySelectorAll("[data-parcel]");
+      for (let i = 0; i < nodes.length; i++) {
+        const el = nodes[i];
+        const id = el.getAttribute("data-parcel");
+        const farm = Zox.Sim.getFarmByParcel(ui.state, id);
+        el.classList.toggle("is-hover", !!(ui.hover && ui.hover.parcelId === id));
+        el.classList.toggle("is-picked", !!(ui.selected && ui.selected.parcelId === id));
+        el.classList.toggle("is-owned", !!farm);
+        el.classList.toggle("is-mature", !!(farm && Zox.Sim.farmMature(farm)));
+        el.classList.toggle("is-open", !farm);
+      }
+      return;
+    }
+    const board = boardTiles(ui);
     const buttons = grid.querySelectorAll("[data-r]");
     for (let i = 0; i < buttons.length; i++) {
       const btn = buttons[i];
       const r = Number(btn.dataset.r);
       const c = Number(btn.dataset.c);
-      const tile = tiles[r][c];
-      const banks = bankBits(tiles, r, c);
+      const tile = board[r][c];
+      const banks = bankBits(board, r, c);
       btn.className = tileFlags(ui, tile) + (banks ? " " + banks : "");
     }
   }
@@ -326,6 +445,7 @@
     boardKey,
     tileFlags,
     worldHTML,
+    corridorHTML,
     syncFlags,
     stageSize,
   };

@@ -157,7 +157,7 @@
       if (!started && ui.state.season === 1 && !ui.state.lastDelta) {
         box.innerHTML =
           `<span class="kicker">This season</span>` +
-          `<span class="income-hint">LIC rent buys farmland. Purchase a parcel, then walk that farm. Advance a season to see the split.</span>`;
+          `<span class="income-hint">LIC rent buys farmland along the corridor. Purchase a deed, walk that farm, convert, buy the next along the rail.</span>`;
         return;
       }
       box.innerHTML =
@@ -204,29 +204,46 @@
       const place = el("place-head");
       const keys = el("keys-line");
       const meadow = el("legend-meadow");
+      const legend = document.querySelector(".legend");
       if (board) board.classList.toggle("is-farm", ui.view === "farm");
+      if (board) board.classList.toggle("is-corridor", ui.view === "world");
       if (farm) {
         const prog = Zox.Sim.farmProgress(farm);
         title.textContent = farm.name;
         sub.textContent = prog.mature
-          ? "Zox regenerative — no chem bill. Improvements stay on this farm."
+          ? "Zox regenerative — no chem bill. Improvements stay on this farm. Back to map for the next deed along the rail."
           : "Year " + prog.year + " of " + prog.need + ". Compost, power, rail, orchards, and homes go here.";
         back.hidden = false;
         if (place) place.textContent = "Improvements on this farm";
         if (keys) keys.textContent = "Keys 1–7 pick tools. B back to map. Enter turns the season.";
         if (meadow) meadow.textContent = "Field";
+        if (legend) legend.hidden = false;
       } else {
-        title.textContent = "Valley map";
-        sub.textContent = "Buy farmland with LIC capital. Click a deed you already own to walk that farm.";
+        const rail = Zox.Sim.railProgress(ui.state);
+        title.textContent = "Corridor map";
+        sub.textContent = rail.ready
+          ? "Green rail lit solid Detroit → Jersey City. Keep the settlement and the circle healthy."
+          : "Long-term goal: build the green rail. Buy farms along the line, convert (5 seasons), buy the next. " +
+            rail.lit +
+            "/" +
+            rail.need +
+            " rail segments lit.";
         back.hidden = true;
         if (place) place.textContent = "What to place";
-        if (keys) keys.textContent = "Keys 1–2 pick tools. Click a farm to walk it. Enter turns the season.";
+        if (keys) keys.textContent = "Keys 1–2 pick tools. Click a deed to buy or walk it. Enter turns the season.";
         if (meadow) meadow.textContent = "Meadow";
+        if (legend) legend.hidden = true;
       }
     }
 
     function fitBoard() {
       const grid = el("grid");
+      if (ui.view === "world") {
+        grid.style.height = "";
+        const stage = grid.querySelector(".corridor-stage");
+        if (stage) stage.style.transform = "";
+        return;
+      }
       const stage = grid.querySelector(".iso-stage");
       if (!stage) return;
       const scale = Math.min(1, grid.clientWidth / stage.offsetWidth);
@@ -241,7 +258,9 @@
       if (force || key !== ui.boardKey) {
         ui.boardKey = key;
         grid.innerHTML = Zox.Render.worldHTML(tiles, ui);
-        grid.setAttribute("aria-label", ui.view === "farm" ? "Farm board" : "Valley map");
+        grid.setAttribute("aria-label", ui.view === "farm" ? "Farm board" : "Detroit to Jersey City corridor");
+        grid.classList.toggle("iso-world", ui.view === "farm");
+        grid.classList.toggle("corridor-world", ui.view === "world");
         fitBoard();
         return;
       }
@@ -257,22 +276,32 @@
       el("tool-hint").textContent = info.hint;
       el("tool-cost").textContent = info.kind === "build" ? "Costs $" + info.cost : "No cost";
 
-      const farmId = ui.view === "farm" ? ui.farmId : null;
-      const look = ui.selected ? Zox.Sim.inspect(ui.state, ui.selected.r, ui.selected.c, farmId) : null;
       const inspectBox = el("inspect");
-      if (!look) {
-        inspectBox.innerHTML =
-          ui.view === "farm"
-            ? `<p class="quiet">Click a lot on this farm. The ditch is not a building lot.</p>`
-            : `<p class="quiet">Click a meadow to buy a farm, or a deed you already own to walk it.</p>`;
-      } else {
-        inspectBox.innerHTML = `<h3>${look.title}</h3><ul>${look.lines.map((l) => `<li>${l}</li>`).join("")}</ul>`;
-        if (ui.view === "world" && look.farm) {
-          inspectBox.innerHTML +=
-            `<p><button type="button" class="linkish" data-enter-farm="${look.farm.id}">Walk this farm</button></p>`;
+      if (ui.view === "world") {
+        const look =
+          ui.selected && ui.selected.parcelId
+            ? Zox.Sim.inspectParcel(ui.state, ui.selected.parcelId)
+            : null;
+        if (!look) {
+          inspectBox.innerHTML = `<p class="quiet">Click a deed along the dashed green rail to buy a farm, or a deed you already own to walk it. Long-term goal: light the rail Detroit → Jersey City.</p>`;
+        } else {
+          inspectBox.innerHTML = `<h3>${look.title}</h3><ul>${look.lines.map((l) => `<li>${l}</li>`).join("")}</ul>`;
+          if (look.farm) {
+            inspectBox.innerHTML +=
+              `<p><button type="button" class="linkish" data-enter-farm="${look.farm.id}">Walk this farm</button></p>`;
+          }
         }
+        renderCompare(look);
+      } else {
+        const farmId = ui.farmId;
+        const look = ui.selected ? Zox.Sim.inspect(ui.state, ui.selected.r, ui.selected.c, farmId) : null;
+        if (!look) {
+          inspectBox.innerHTML = `<p class="quiet">Click a lot on this farm. The ditch is not a building lot.</p>`;
+        } else {
+          inspectBox.innerHTML = `<h3>${look.title}</h3><ul>${look.lines.map((l) => `<li>${l}</li>`).join("")}</ul>`;
+        }
+        renderCompare(look);
       }
-      renderCompare(look);
 
       const goals = el("goals");
       goals.innerHTML = Zox.Sim.goalProgress(ui.state)
@@ -333,7 +362,7 @@
         return;
       }
       overlay.hidden = false;
-      el("end-title").textContent = ui.state.status === "won" ? "The village holds." : "Not this valley.";
+      el("end-title").textContent = ui.state.status === "won" ? "The village holds." : "Not this corridor.";
       el("end-body").textContent = ui.state.endReason;
       el("end-score").textContent = "Score " + ui.state.score;
     }
@@ -351,11 +380,23 @@
       if (farm) {
         const prog = Zox.Sim.farmProgress(farm);
         el("food-note").textContent = farm.name + (prog.mature ? " — regen." : " — year " + prog.year + " of 5.");
-      } else if (ui.state.population === 0) {
-        el("food-note").textContent =
-          ui.state.farms.length === 0 ? "Valley map. Buy a farm to walk the fields." : ui.state.farms.length + " farm" + (ui.state.farms.length === 1 ? "" : "s") + " on the map.";
       } else {
-        el("food-note").textContent = ui.state.population + " people on the farms.";
+        const rail = Zox.Sim.railProgress(ui.state);
+        if (ui.state.farms.length === 0) {
+          el("food-note").textContent = "Corridor map. Buy a farm along the rail.";
+        } else if (ui.state.population === 0) {
+          el("food-note").textContent =
+            ui.state.farms.length +
+            " farm" +
+            (ui.state.farms.length === 1 ? "" : "s") +
+            " · rail " +
+            rail.lit +
+            "/" +
+            rail.need;
+        } else {
+          el("food-note").textContent =
+            ui.state.population + " people · rail " + rail.lit + "/" + rail.need;
+        }
       }
     }
 
@@ -367,39 +408,39 @@
       render();
     }
 
-    function actOnTile(r, c) {
-      ui.selected = { r, c };
-      if (ui.view === "world") {
-        const tile = Zox.Map.getTile(ui.state.tiles, r, c);
-        if (tile && tile.building === "farm" && tile.farmId) {
-          if (ui.tool === "inspect") {
-            flash("");
-            render();
-            return;
-          }
-          enterFarm(tile.farmId, false);
-          return;
-        }
+    function actOnParcel(parcelId) {
+      ui.selected = { parcelId: parcelId };
+      const farm = Zox.Sim.getFarmByParcel(ui.state, parcelId);
+      if (farm) {
         if (ui.tool === "inspect") {
           flash("");
           render();
           return;
         }
-        if (ui.tool === "farm") {
-          const res = Zox.Sim.place(ui.state, r, c, "farm", null);
-          flash(res.ok ? "" : res.why);
-          if (res.ok && res.enter) {
-            enterFarm(res.enter, true);
-            return;
-          }
-          render();
-          return;
-        }
-        flash("Improvements go on a farm. Buy a parcel first.");
+        enterFarm(farm.id, false);
+        return;
+      }
+      if (ui.tool === "inspect") {
+        flash("");
         render();
         return;
       }
+      if (ui.tool === "farm") {
+        const res = Zox.Sim.buyParcel(ui.state, parcelId);
+        flash(res.ok ? "" : res.why);
+        if (res.ok && res.enter) {
+          enterFarm(res.enter, true);
+          return;
+        }
+        render();
+        return;
+      }
+      flash("Improvements go on a farm. Buy a parcel first.");
+      render();
+    }
 
+    function actOnTile(r, c) {
+      ui.selected = { r, c };
       const farmId = ui.farmId;
       if (ui.tool === "inspect") {
         flash("");
@@ -443,12 +484,25 @@
       });
 
       el("grid").addEventListener("click", (e) => {
+        const parcel = e.target.closest("[data-parcel]");
+        if (parcel) {
+          actOnParcel(parcel.getAttribute("data-parcel"));
+          return;
+        }
         const btn = e.target.closest("[data-r]");
         if (!btn) return;
         actOnTile(Number(btn.dataset.r), Number(btn.dataset.c));
       });
 
       el("grid").addEventListener("pointerover", (e) => {
+        const parcel = e.target.closest("[data-parcel]");
+        if (parcel) {
+          const id = parcel.getAttribute("data-parcel");
+          if (ui.hover && ui.hover.parcelId === id) return;
+          ui.hover = { parcelId: id };
+          renderGrid();
+          return;
+        }
         const btn = e.target.closest("[data-r]");
         if (!btn) return;
         const r = Number(btn.dataset.r);
@@ -481,9 +535,12 @@
       function openFarmModels() {
         const box = el("farm-compare");
         const farm = currentFarm();
-        const look = ui.selected
-          ? Zox.Sim.inspect(ui.state, ui.selected.r, ui.selected.c, ui.view === "farm" ? ui.farmId : null)
-          : null;
+        const look =
+          ui.view === "farm" && ui.selected
+            ? Zox.Sim.inspect(ui.state, ui.selected.r, ui.selected.c, ui.farmId)
+            : ui.selected && ui.selected.parcelId
+              ? Zox.Sim.inspectParcel(ui.state, ui.selected.parcelId)
+              : null;
         const books = farm ? Zox.Sim.farmBooks(farm) : look && look.farm ? Zox.Sim.farmBooks(look.farm) : null;
         box.innerHTML = Zox.Sim.farmModelRows()
           .map((row) => {
