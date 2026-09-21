@@ -1431,3 +1431,27 @@ h1 {
     min-height: 240px;
   }
 }
+
+
+/* —— Amazon book link —— */
+.book-line {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.book-link {
+  display: inline-block;
+  color: #5a4018;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.book-link:hover {
+  color: #2f5a28;
+}
+.intro-book {
+  margin: 0.85rem 0 1rem;
+}
+.intro-book .book-link {
+  color: #3f5c34;
+}

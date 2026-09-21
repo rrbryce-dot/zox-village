@@ -124,6 +124,12 @@
     groveCap: 3,
   };
 
+  const BOOK = {
+    title: "The Luckiest Dog on the Porch",
+    author: "Jacob Westbrook",
+    amazon: "https://www.amazon.com/Luckiest-Dog-Porch-Jacob-Westbrook/dp/B0F36LGDKG",
+  };
+
   const LIC = {
     name: "LIC green building",
     income: 11,
@@ -247,6 +253,7 @@
   Zox.GOAL = GOAL;
   Zox.START = START;
   Zox.CARBON = CARBON;
+  Zox.BOOK = BOOK;
   Zox.LIC = LIC;
   Zox.FARM_MODELS = FARM_MODELS;
   Zox.MAP = MAP;
