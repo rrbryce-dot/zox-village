@@ -332,14 +332,16 @@
 
     const banner =
       ui.grazing
-        ? `<div class="graze-banner" aria-live="polite"><b>🐄 Animals grazing</b> — crop rent · manure on the land</div>`
-        : `<div class="graze-banner is-idle" aria-hidden="false"><b>🐄 Grazing herd</b> — on Next Season they eat the crop & you get rent</div>`;
+        ? `<div class="graze-banner" aria-live="polite"><b>Animals grazing</b> — crop rent · manure on the land</div>`
+        : `<div class="graze-banner is-idle"><b>Grazing herd on this farm</b> — Next Season = rent the crop to the animals</div>`;
 
     return (
+      `<div class="farm-wrap">` +
+      banner +
       `<div class="iso-stage" style="width:${dim.w}px;height:${dim.h}px;--tw:${tw}px;--th:${th}px;--cols:${size};--head:${head}px">` +
       `<div class="iso-earth" aria-hidden="true"></div>` +
       cells.join("") +
-      banner +
+      `</div>` +
       `</div>`
     );
   }
