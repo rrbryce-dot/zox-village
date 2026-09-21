@@ -1674,3 +1674,40 @@ body {
 @media (max-width: 520px) {
   .season-wins { grid-template-columns: 1fr; }
 }
+
+
+.score-how {
+  margin: 0 0 10px;
+  text-align: center;
+}
+.linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--moss);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.linkish:hover {
+  color: #2f5a28;
+}
+.score-how-body {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 250, 237, 0.92);
+  border: 1px solid rgba(43, 36, 24, 0.1);
+  text-align: left;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+.score-how-body p {
+  margin: 0 0 8px;
+}
+.score-how-body p:last-child {
+  margin-bottom: 0;
+}

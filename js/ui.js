@@ -508,6 +508,8 @@
       const pop = el("pop-win-num");
       if (earth) earth.textContent = String(wins.earth || 0);
       if (pop) pop.textContent = String(wins.population || 0);
+      const howBody = el("score-how-body");
+      if (howBody) howBody.hidden = true;
       card.hidden = false;
     }
 
@@ -583,6 +585,14 @@
         seasonOk.addEventListener("click", () => {
           hideSeasonWins();
           render();
+        });
+      }
+      const howToggle = el("score-how-toggle");
+      if (howToggle) {
+        howToggle.addEventListener("click", () => {
+          const body = el("score-how-body");
+          if (!body) return;
+          body.hidden = !body.hidden;
         });
       }
       el("restart").addEventListener("click", restart);
