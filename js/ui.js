@@ -521,8 +521,8 @@
       const pop = el("pop-win-num");
       if (earth) earth.textContent = String(wins.earth || 0);
       if (pop) pop.textContent = String(wins.population || 0);
-      const howBody = el("score-how-body");
-      if (howBody) howBody.hidden = true;
+      const how = el("score-how");
+      if (how) how.open = false;
       card.hidden = false;
     }
 
@@ -600,14 +600,7 @@
           render();
         });
       }
-      const howToggle = el("score-how-toggle");
-      if (howToggle) {
-        howToggle.addEventListener("click", () => {
-          const body = el("score-how-body");
-          if (!body) return;
-          body.hidden = !body.hidden;
-        });
-      }
+      /* score-how uses native <details>/<summary> — no JS click needed */
       el("restart").addEventListener("click", restart);
       el("end-restart").addEventListener("click", restart);
       el("back-map").addEventListener("click", leaveFarm);

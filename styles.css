@@ -1676,13 +1676,14 @@ body {
 
 
 .score-how {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   text-align: center;
 }
-.linkish {
+.score-how > summary.linkish {
+  list-style: none;
   border: 0;
   background: none;
-  padding: 0;
+  padding: 4px 6px;
   font: inherit;
   font-size: 0.88rem;
   font-weight: 700;
@@ -1690,12 +1691,19 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+  display: inline-block;
 }
-.linkish:hover {
+.score-how > summary.linkish::-webkit-details-marker {
+  display: none;
+}
+.score-how > summary.linkish:hover {
   color: #2f5a28;
 }
+.score-how[open] > summary.linkish {
+  margin-bottom: 8px;
+}
 .score-how-body {
-  margin: 0 0 14px;
+  margin: 0 0 4px;
   padding: 10px 12px;
   border-radius: 10px;
   background: rgba(255, 250, 237, 0.92);
@@ -1703,6 +1711,7 @@ body {
   text-align: left;
   font-size: 0.84rem;
   line-height: 1.4;
+  display: block;
 }
 .score-how-body p {
   margin: 0 0 8px;
