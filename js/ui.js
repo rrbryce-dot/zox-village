@@ -497,10 +497,30 @@
       render();
     }
 
+    function showSeasonWins() {
+      const card = el("season-win");
+      if (!card) return;
+      const wins = ui.state.lastSeasonWins || {
+        earth: ui.state.carbonSeason || 0,
+        population: ui.state.nutritionExtra || 0,
+      };
+      const earth = el("earth-win-num");
+      const pop = el("pop-win-num");
+      if (earth) earth.textContent = String(wins.earth || 0);
+      if (pop) pop.textContent = String(wins.population || 0);
+      card.hidden = false;
+    }
+
+    function hideSeasonWins() {
+      const card = el("season-win");
+      if (card) card.hidden = true;
+    }
+
     function nextSeason() {
       const res = Zox.Sim.runSeason(ui.state);
       flash(res.ok ? "" : res.why);
       render();
+      if (res.ok) showSeasonWins();
     }
 
     function restart() {
@@ -512,6 +532,7 @@
       ui.tool = "farm";
       ui.boardKey = "";
       flash("");
+      hideSeasonWins();
       el("intro").hidden = true;
       render();
     }
@@ -557,6 +578,13 @@
       });
 
       el("next-season").addEventListener("click", nextSeason);
+      const seasonOk = el("season-win-ok");
+      if (seasonOk) {
+        seasonOk.addEventListener("click", () => {
+          hideSeasonWins();
+          render();
+        });
+      }
       el("restart").addEventListener("click", restart);
       el("end-restart").addEventListener("click", restart);
       el("back-map").addEventListener("click", leaveFarm);
@@ -631,7 +659,7 @@
           e.preventDefault();
           return;
         }
-        if (!el("intro").hidden || !el("end-card").hidden || !el("farm-card").hidden) return;
+        if (!el("intro").hidden || !el("end-card").hidden || !el("farm-card").hidden || (el("season-win") && !el("season-win").hidden)) return;
         if (e.key === "b" || e.key === "B") {
           if (ui.view === "farm") {
             leaveFarm();

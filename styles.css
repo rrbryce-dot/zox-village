@@ -1621,3 +1621,56 @@ body {
   opacity: 0.72;
   margin-left: 0.25em;
 }
+
+
+/* —— Season wins popup —— */
+.season-win-card {
+  max-width: min(520px, calc(100vw - 24px));
+}
+.season-wins {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+.season-wins article {
+  padding: 12px 12px 14px;
+  border-radius: 12px;
+  text-align: center;
+  border: 2px solid rgba(63, 92, 52, 0.25);
+  background: rgba(255, 250, 237, 0.9);
+}
+.season-wins .earth-win {
+  border-color: rgba(47, 106, 50, 0.45);
+  background: linear-gradient(180deg, #e8f2d4, #f4ead3);
+}
+.season-wins .pop-win {
+  border-color: rgba(180, 99, 58, 0.4);
+  background: linear-gradient(180deg, #f7e6d4, #f4ead3);
+}
+.season-wins .win-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.season-wins .big-num {
+  margin: 6px 0 2px;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--moss);
+}
+.season-wins .pop-win .big-num {
+  color: #8a4a28;
+}
+.season-wins .quiet {
+  margin: 0;
+  font-size: 0.82rem;
+}
+@media (max-width: 520px) {
+  .season-wins { grid-template-columns: 1fr; }
+}

@@ -468,6 +468,23 @@
   }
 
 
+  /**
+   * Extra nutrition above traditional baseline (=1) delivered this season.
+   * Mature regen portions count at 6×, converting at 2× → additional = portions × (q − 1).
+   */
+  function nutritionExtraSeason(state, parks) {
+    const N = Zox.NUTRITION;
+    let extra = 0;
+    for (let i = 0; i < state.farms.length; i++) {
+      const q = farmMature(state.farms[i]) ? N.regenerative : N.converting;
+      extra += N.farmPortions * Math.max(0, q - N.traditional);
+    }
+    if (parks && parks.length) {
+      extra += parks.length * N.parkBonus * Math.max(0, (N.converting - N.traditional));
+    }
+    return Math.round(extra);
+  }
+
   function carbonSeasonUnits(state, parks, groves) {
     const C = Zox.CARBON;
     let units = 0;
@@ -704,6 +721,14 @@
     state.carbonSeason = sequestered;
     state.carbonTotal = (state.carbonTotal || 0) + sequestered;
 
+    const nutritionExtra = nutritionExtraSeason(state, parks);
+    state.nutritionExtra = nutritionExtra;
+    state.lastSeasonWins = {
+      earth: sequestered,
+      population: nutritionExtra,
+      season: state.season,
+    };
+
     const healthTarget = computeHealthTarget(state, parks);
     state.health = clamp(
       Math.round(state.health * 0.35 + healthTarget * 0.65),
@@ -827,6 +852,7 @@
     buildingsOf,
     railProgress,
     carbonSeasonUnits,
+    nutritionExtraSeason,
     computeHealthTarget,
   };
 })(window);
