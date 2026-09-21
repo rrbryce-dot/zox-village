@@ -1765,26 +1765,49 @@ body {
 
 /* —— Animals grazing on farm fields —— */
 .piece-graze {
-  position: absolute;
-  left: 50%;
-  bottom: 42%;
-  width: 48px;
-  height: 40px;
-  transform: translateX(-50%);
-  z-index: 6;
-  pointer-events: none;
-  filter: drop-shadow(0 2px 2px rgba(40, 28, 10, 0.25));
-  animation: graze-nibble 1.8s ease-in-out infinite;
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 18% !important;
+  width: 58px !important;
+  height: 50px !important;
+  transform: translateX(-50%) !important;
+  z-index: 20 !important;
+  pointer-events: none !important;
+  filter: drop-shadow(0 3px 3px rgba(40, 28, 10, 0.35));
+  animation: graze-nibble 1.6s ease-in-out infinite;
 }
 .is-grazing .iso-cap {
-  filter: brightness(1.05);
+  filter: brightness(1.08);
 }
 @keyframes graze-nibble {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-46%) translateY(1px); }
+  0%, 100% { transform: translateX(-50%) translateY(0) !important; }
+  50% { transform: translateX(-42%) translateY(2px) !important; }
 }
 .board.is-farm.is-grazing-board {
-  outline: 2px solid rgba(47, 106, 50, 0.45);
+  outline: 3px solid #2f6a32;
+  box-shadow: 0 0 0 4px rgba(201, 232, 106, 0.35);
+}
+.graze-banner {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #2f6a32;
+  color: #f4ead3;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(20, 40, 10, 0.35);
+  pointer-events: none;
+}
+.graze-banner.is-idle {
+  background: #5a7040;
+}
+.iso-stage {
+  position: relative;
 }
 .graze-scene {
   margin: 0 0 12px;

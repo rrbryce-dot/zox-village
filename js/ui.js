@@ -545,16 +545,19 @@
       flash(res.ok ? "" : res.why);
       if (res.ok) {
         ui.grazing = true;
-        // Prefer showing the farm board so animals are visible
-        if (ui.view !== "farm" && ui.state.farms && ui.state.farms.length) {
+        if (ui.state.farms && ui.state.farms.length) {
           const last = ui.state.farms[ui.state.farms.length - 1];
           ui.view = "farm";
           ui.farmId = last.id;
           ui.tool = "inspect";
         }
         ui.boardKey = "";
+        hideSeasonWins();
         render();
-        showSeasonWins();
+        // Let the herd show on the farm before the score card
+        window.setTimeout(function () {
+          showSeasonWins();
+        }, 1600);
       } else {
         render();
       }

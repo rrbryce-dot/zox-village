@@ -198,33 +198,34 @@
     const kind = seed % 3;
     if (kind === 0) {
       return (
-        `<svg class="piece piece-graze" viewBox="0 0 48 40" aria-hidden="true">` +
-        `<ellipse cx="22" cy="26" rx="12" ry="8" fill="#c4a06a"/>` +
-        `<circle cx="34" cy="20" r="6" fill="#b89058"/>` +
-        `<circle cx="36.5" cy="18.5" r="1.1" fill="#2b2418"/>` +
-        `<path d="M12 30 v6 M18 32 v5 M26 32 v5 M32 30 v6" stroke="#6a4a28" stroke-width="2" stroke-linecap="round"/>` +
-        `<ellipse cx="16" cy="34" rx="3" ry="1.6" fill="#5a3a20" opacity="0.85"/>` +
+        `<svg class="piece piece-graze" viewBox="0 0 64 56" aria-hidden="true">` +
+        `<ellipse cx="28" cy="34" rx="18" ry="12" fill="#f0d090" stroke="#5a4018" stroke-width="1.2"/>` +
+        `<circle cx="46" cy="24" r="10" fill="#e8c070" stroke="#5a4018" stroke-width="1.2"/>` +
+        `<circle cx="50" cy="21" r="2" fill="#1a1208"/>` +
+        `<path d="M14 40 v12 M24 42 v11 M34 42 v11 M42 40 v12" stroke="#5a4018" stroke-width="3.5" stroke-linecap="round"/>` +
+        `<ellipse cx="18" cy="50" rx="5" ry="2.5" fill="#4a2a10"/>` +
+        `<ellipse cx="36" cy="50" rx="4.5" ry="2.2" fill="#4a2a10"/>` +
         `</svg>`
       );
     }
     if (kind === 1) {
       return (
-        `<svg class="piece piece-graze" viewBox="0 0 48 40" aria-hidden="true">` +
-        `<ellipse cx="22" cy="27" rx="11" ry="7" fill="#e8e0d0"/>` +
-        `<circle cx="32" cy="22" r="5.2" fill="#f0e8d8"/>` +
-        `<circle cx="34" cy="20.5" r="0.9" fill="#2b2418"/>` +
-        `<path d="M14 31 v5 M20 32 v4 M26 32 v4 M31 31 v5" stroke="#8a7a60" stroke-width="2" stroke-linecap="round"/>` +
-        `<ellipse cx="18" cy="34" rx="2.6" ry="1.4" fill="#5a3a20" opacity="0.8"/>` +
+        `<svg class="piece piece-graze" viewBox="0 0 64 56" aria-hidden="true">` +
+        `<ellipse cx="28" cy="36" rx="16" ry="11" fill="#fff8ee" stroke="#6a5a40" stroke-width="1.2"/>` +
+        `<circle cx="44" cy="28" r="9" fill="#ffffff" stroke="#6a5a40" stroke-width="1.2"/>` +
+        `<circle cx="47" cy="25" r="1.8" fill="#1a1208"/>` +
+        `<path d="M16 42 v10 M24 44 v9 M32 44 v9 M40 42 v10" stroke="#8a7a60" stroke-width="3.2" stroke-linecap="round"/>` +
+        `<ellipse cx="20" cy="50" rx="4.5" ry="2.2" fill="#4a2a10"/>` +
         `</svg>`
       );
     }
     return (
-      `<svg class="piece piece-graze" viewBox="0 0 48 40" aria-hidden="true">` +
-      `<ellipse cx="24" cy="26" rx="10" ry="7" fill="#8a6a48"/>` +
-      `<circle cx="34" cy="21" r="5.5" fill="#7a5a38"/>` +
-      `<circle cx="36" cy="19.5" r="1" fill="#2b2418"/>` +
-      `<path d="M14 30 v6 M20 31 v5 M27 31 v5 M32 30 v6" stroke="#5a3a20" stroke-width="2" stroke-linecap="round"/>` +
-      `<ellipse cx="20" cy="34" rx="2.8" ry="1.5" fill="#4a2a18" opacity="0.85"/>` +
+      `<svg class="piece piece-graze" viewBox="0 0 64 56" aria-hidden="true">` +
+      `<ellipse cx="30" cy="34" rx="17" ry="11" fill="#5a4030" stroke="#2a1810" stroke-width="1.2"/>` +
+      `<circle cx="46" cy="24" r="9.5" fill="#4a3020" stroke="#2a1810" stroke-width="1.2"/>` +
+      `<circle cx="49" cy="21" r="1.9" fill="#f0e8d0"/>` +
+      `<path d="M16 40 v12 M25 42 v11 M35 42 v11 M43 40 v12" stroke="#2a1810" stroke-width="3.5" stroke-linecap="round"/>` +
+      `<ellipse cx="22" cy="50" rx="5" ry="2.4" fill="#3a2010"/>` +
       `</svg>`
     );
   }
@@ -280,10 +281,12 @@
       farmView &&
       !tile.building &&
       tile.landmark !== "barn" &&
-      tile.terrain === "meadow" &&
-      (ui.grazing || (ui.state && ui.state.farms && ui.state.farms.length > 0));
-    if (showGraze && seed % 2 === 0) {
-      graze = grazeAnimal(seed);
+      (tile.terrain === "meadow" || tile.terrain === "grove") &&
+      ui.state &&
+      ui.state.farms &&
+      ui.state.farms.length > 0;
+    if (showGraze) {
+      graze = grazeAnimal(seed + (tile.r * 3 + tile.c));
     }
 
     return (
@@ -327,10 +330,16 @@
     order.sort((a, b) => a.r + a.c - (b.r + b.c) || a.r - b.r);
     for (const tile of order) cells.push(tileHTML(tiles, tile, ui, tw, th, head));
 
+    const banner =
+      ui.grazing
+        ? `<div class="graze-banner" aria-live="polite"><b>🐄 Animals grazing</b> — crop rent · manure on the land</div>`
+        : `<div class="graze-banner is-idle" aria-hidden="false"><b>🐄 Grazing herd</b> — on Next Season they eat the crop & you get rent</div>`;
+
     return (
       `<div class="iso-stage" style="width:${dim.w}px;height:${dim.h}px;--tw:${tw}px;--th:${th}px;--cols:${size};--head:${head}px">` +
       `<div class="iso-earth" aria-hidden="true"></div>` +
       cells.join("") +
+      banner +
       `</div>`
     );
   }
