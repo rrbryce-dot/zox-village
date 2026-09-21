@@ -33,6 +33,7 @@
       }
       if (ui.selected && ui.selected.parcelId) key += "S" + ui.selected.parcelId;
       if (ui.hover && ui.hover.parcelId) key += "H" + ui.hover.parcelId;
+      if (ui.grazing) key += "G1";
       key += "T" + (ui.tool || "");
       return key;
     }
@@ -193,6 +194,41 @@
     return groveTrees(seed);
   }
 
+  function grazeAnimal(seed) {
+    const kind = seed % 3;
+    if (kind === 0) {
+      return (
+        `<svg class="piece piece-graze" viewBox="0 0 48 40" aria-hidden="true">` +
+        `<ellipse cx="22" cy="26" rx="12" ry="8" fill="#c4a06a"/>` +
+        `<circle cx="34" cy="20" r="6" fill="#b89058"/>` +
+        `<circle cx="36.5" cy="18.5" r="1.1" fill="#2b2418"/>` +
+        `<path d="M12 30 v6 M18 32 v5 M26 32 v5 M32 30 v6" stroke="#6a4a28" stroke-width="2" stroke-linecap="round"/>` +
+        `<ellipse cx="16" cy="34" rx="3" ry="1.6" fill="#5a3a20" opacity="0.85"/>` +
+        `</svg>`
+      );
+    }
+    if (kind === 1) {
+      return (
+        `<svg class="piece piece-graze" viewBox="0 0 48 40" aria-hidden="true">` +
+        `<ellipse cx="22" cy="27" rx="11" ry="7" fill="#e8e0d0"/>` +
+        `<circle cx="32" cy="22" r="5.2" fill="#f0e8d8"/>` +
+        `<circle cx="34" cy="20.5" r="0.9" fill="#2b2418"/>` +
+        `<path d="M14 31 v5 M20 32 v4 M26 32 v4 M31 31 v5" stroke="#8a7a60" stroke-width="2" stroke-linecap="round"/>` +
+        `<ellipse cx="18" cy="34" rx="2.6" ry="1.4" fill="#5a3a20" opacity="0.8"/>` +
+        `</svg>`
+      );
+    }
+    return (
+      `<svg class="piece piece-graze" viewBox="0 0 48 40" aria-hidden="true">` +
+      `<ellipse cx="24" cy="26" rx="10" ry="7" fill="#8a6a48"/>` +
+      `<circle cx="34" cy="21" r="5.5" fill="#7a5a38"/>` +
+      `<circle cx="36" cy="19.5" r="1" fill="#2b2418"/>` +
+      `<path d="M14 30 v6 M20 31 v5 M27 31 v5 M32 30 v6" stroke="#5a3a20" stroke-width="2" stroke-linecap="round"/>` +
+      `<ellipse cx="20" cy="34" rx="2.8" ry="1.5" fill="#4a2a18" opacity="0.85"/>` +
+      `</svg>`
+    );
+  }
+
   function regenMeter(tile, ui) {
     if (tile.building !== "farm") return "";
     const farm = ui ? Zox.Sim.getFarm(ui.state, tile.farmId) : tile;
@@ -238,8 +274,20 @@
     else if (tile.landmark === "barn") volume = pieceSVG("farm", seed);
     else if (tile.terrain === "grove") volume = groveTrees(seed);
 
+    // Animals graze field tiles on the farm board (crop rent / manure cycle)
+    let graze = "";
+    const showGraze =
+      farmView &&
+      !tile.building &&
+      tile.landmark !== "barn" &&
+      tile.terrain === "meadow" &&
+      (ui.grazing || (ui.state && ui.state.farms && ui.state.farms.length > 0));
+    if (showGraze && seed % 2 === 0) {
+      graze = grazeAnimal(seed);
+    }
+
     return (
-      `<button type="button" class="${tileFlags(ui, tile)} ${banks}" data-r="${tile.r}" data-c="${tile.c}" ` +
+      `<button type="button" class="${tileFlags(ui, tile)} ${banks}${graze ? " is-grazing" : ""}" data-r="${tile.r}" data-c="${tile.c}" ` +
       `style="--x:${p.x}px;--y:${p.y}px;--z:${p.z}" aria-label="${label} at ${tile.r + 1}, ${tile.c + 1}">` +
       `<span class="iso-shadow"></span>` +
       `<span class="iso-stack">` +
@@ -248,6 +296,7 @@
       `<span class="iso-right"></span>` +
       `<span class="iso-cap">${capDecor(tile, farmView)}</span>` +
       volume +
+      graze +
       regenMeter(tile, ui) +
       `</span>` +
       `</button>`

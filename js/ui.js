@@ -53,6 +53,7 @@
       selected: null,
       flash: "",
       boardKey: "",
+      grazing: false,
     };
 
     function currentFarm() {
@@ -232,7 +233,10 @@
       const keys = el("keys-line");
       const meadow = el("legend-meadow");
       const legend = document.querySelector(".legend");
-      if (board) board.classList.toggle("is-farm", ui.view === "farm");
+      if (board) {
+        board.classList.toggle("is-farm", ui.view === "farm");
+        board.classList.toggle("is-grazing-board", !!ui.grazing && ui.view === "farm");
+      }
       if (board) board.classList.toggle("is-corridor", ui.view === "world");
       if (farm) {
         const prog = Zox.Sim.farmProgress(farm);
@@ -521,6 +525,9 @@
       const pop = el("pop-win-num");
       if (earth) earth.textContent = String(wins.earth || 0);
       if (pop) pop.textContent = String(wins.population || 0);
+      const grazeEl = el("graze-win-num");
+      const graze = (ui.state.lastIncome && ui.state.lastIncome.graze) || 0;
+      if (grazeEl) grazeEl.textContent = "$" + graze;
       const how = el("score-how");
       if (how) how.open = false;
       card.hidden = false;
@@ -529,13 +536,28 @@
     function hideSeasonWins() {
       const card = el("season-win");
       if (card) card.hidden = true;
+      ui.grazing = false;
+      ui.boardKey = "";
     }
 
     function nextSeason() {
       const res = Zox.Sim.runSeason(ui.state);
       flash(res.ok ? "" : res.why);
-      render();
-      if (res.ok) showSeasonWins();
+      if (res.ok) {
+        ui.grazing = true;
+        // Prefer showing the farm board so animals are visible
+        if (ui.view !== "farm" && ui.state.farms && ui.state.farms.length) {
+          const last = ui.state.farms[ui.state.farms.length - 1];
+          ui.view = "farm";
+          ui.farmId = last.id;
+          ui.tool = "inspect";
+        }
+        ui.boardKey = "";
+        render();
+        showSeasonWins();
+      } else {
+        render();
+      }
     }
 
     function restart() {

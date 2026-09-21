@@ -1761,3 +1761,55 @@ body {
   opacity: 0.92;
   white-space: normal;
 }
+
+
+/* —— Animals grazing on farm fields —— */
+.piece-graze {
+  position: absolute;
+  left: 50%;
+  bottom: 42%;
+  width: 48px;
+  height: 40px;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(40, 28, 10, 0.25));
+  animation: graze-nibble 1.8s ease-in-out infinite;
+}
+.is-grazing .iso-cap {
+  filter: brightness(1.05);
+}
+@keyframes graze-nibble {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-46%) translateY(1px); }
+}
+.board.is-farm.is-grazing-board {
+  outline: 2px solid rgba(47, 106, 50, 0.45);
+}
+.graze-scene {
+  margin: 0 0 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(63, 92, 52, 0.35);
+  background: #6b8a49;
+}
+.graze-scene-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.graze-rent-line {
+  margin: 0;
+  padding: 6px 10px 8px;
+  background: rgba(244, 234, 211, 0.92);
+  font-size: 0.88rem;
+  text-align: center;
+}
+.graze-rent-line strong {
+  color: var(--moss);
+  font-size: 1.05rem;
+}
+.season-btn-art {
+  width: 96px !important;
+  height: 36px !important;
+}
