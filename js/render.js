@@ -8,21 +8,35 @@
   const TH = 27;
   const HEAD = 58;
 
-  function pos(r, c, size) {
-    const x = (c - r) * (TW / 2);
-    const y = (c + r) * (TH / 2);
-    const originX = ((size - 1) * TW) / 2;
-    return { x: originX + x, y: HEAD + y, z: r + c };
+  function pos(r, c, size, tw, th, head) {
+    const tileW = tw || TW;
+    const tileH = th || TH;
+    const top = head == null ? HEAD : head;
+    const x = (c - r) * (tileW / 2);
+    const y = (c + r) * (tileH / 2);
+    const originX = ((size - 1) * tileW) / 2;
+    return { x: originX + x, y: top + y, z: r + c };
   }
 
-  function boardKey(tiles) {
-    let key = String(tiles.length);
+  function boardTiles(ui) {
+    return Zox.Sim.tilesForView(ui.state, ui.view === "farm" ? ui.farmId : null);
+  }
+
+  function boardKey(tiles, ui) {
+    let key = (ui && ui.view ? ui.view : "world") + ":" + (ui && ui.farmId ? ui.farmId : "") + ":" + tiles.length;
     for (let r = 0; r < tiles.length; r++) {
       for (let c = 0; c < tiles[r].length; c++) {
         const t = tiles[r][c];
-        key += (t.terrain[0] || "?") + (t.building ? t.building[0] : ".");
-        if (t.building === "farm") key += String(t.regenAge || 0);
+        key += (t.terrain[0] || "?") + (t.building ? t.building[0] : ".") + (t.landmark ? t.landmark[0] : "");
+        if (t.building === "farm" && ui) {
+          const farm = Zox.Sim.getFarm(ui.state, t.farmId);
+          key += farm ? String(farm.regenAge || 0) : "0";
+        }
       }
+    }
+    if (ui && ui.view === "farm") {
+      const farm = Zox.Sim.getFarm(ui.state, ui.farmId);
+      if (farm) key += "A" + farm.regenAge;
     }
     return key;
   }
@@ -32,20 +46,31 @@
   }
 
   function tileFlags(ui, tile) {
+    const board = boardTiles(ui);
     const parts = ["iso-tile", "is-" + tile.terrain];
     if (tile.building) parts.push("has-" + tile.building);
-    if (tile.building === "farm") parts.push(Zox.Sim.farmMature(tile) ? "is-mature" : "is-young");
+    if (tile.landmark === "barn") parts.push("has-barn");
+    if (tile.building === "farm") {
+      const farm = Zox.Sim.getFarm(ui.state, tile.farmId);
+      parts.push(farm && Zox.Sim.farmMature(farm) ? "is-mature" : "is-young");
+    }
+    if (ui.view === "farm" && !tile.building && tile.terrain === "meadow") parts.push("is-field");
     if (ui.hover && ui.hover.r === tile.r && ui.hover.c === tile.c) parts.push("is-hover");
     if (ui.selected && ui.selected.r === tile.r && ui.selected.c === tile.c) parts.push("is-picked");
     if (ui.tool === "compost" || tile.building === "compost") {
-      const hubs = tile.building === "compost" ? [tile] : Zox.Map.tilesOf(ui.state.tiles, "compost");
+      const hubs = tile.building === "compost" ? [tile] : Zox.Map.tilesOf(board, "compost");
       const ghost = ui.tool === "compost" && ui.hover ? [ui.hover] : [];
       const near = hubs.concat(ghost).some((h) => Zox.Map.chebyshev(tile.r, tile.c, h.r, h.c) <= 2);
       if (near) parts.push("in-loop");
     }
-    if (ui.tool !== "inspect" && ui.tool !== "bulldoze" && ui.hover && ui.hover.r === tile.r && ui.hover.c === tile.c) {
-      const check = Zox.Sim.canPlace(ui.state, tile.r, tile.c, ui.tool);
-      parts.push(check.ok ? "can-drop" : "no-drop");
+    if (ui.hover && ui.hover.r === tile.r && ui.hover.c === tile.c) {
+      if (ui.view === "world" && tile.building === "farm" && ui.tool !== "inspect") {
+        parts.push("can-drop");
+      } else if (ui.tool !== "inspect" && ui.tool !== "bulldoze") {
+        const farmId = ui.view === "farm" ? ui.farmId : null;
+        const check = Zox.Sim.canPlace(ui.state, tile.r, tile.c, ui.tool, farmId);
+        parts.push(check.ok ? "can-drop" : "no-drop");
+      }
     }
     if (tile.terrain === "water") parts.push("is-water");
     parts.push("shade-" + shade(tile.r, tile.c));
@@ -182,9 +207,11 @@
     return groveTrees(seed);
   }
 
-  function regenMeter(tile) {
+  function regenMeter(tile, ui) {
     if (tile.building !== "farm") return "";
-    const prog = Zox.Sim.farmProgress(tile);
+    const farm = ui ? Zox.Sim.getFarm(ui.state, tile.farmId) : tile;
+    if (!farm) return "";
+    const prog = Zox.Sim.farmProgress(farm);
     if (prog.mature) {
       return `<span class="regen-badge" aria-hidden="true">regen</span>`;
     }
@@ -201,8 +228,10 @@
     );
   }
 
-  function capDecor(tile) {
-    if (tile.building === "farm") return `<span class="furrows" aria-hidden="true"></span>`;
+  function capDecor(tile, farmView) {
+    if (tile.building === "farm" || (farmView && tile.terrain === "meadow" && !tile.building)) {
+      return `<span class="furrows" aria-hidden="true"></span>`;
+    }
     if (tile.terrain === "meadow" && !tile.building) {
       return `<span class="tufts" aria-hidden="true"></span>`;
     }
@@ -210,17 +239,23 @@
     return "";
   }
 
-  function tileHTML(tiles, tile, ui) {
+  function tileHTML(tiles, tile, ui, tw, th, head) {
     const size = tiles.length;
-    const p = pos(tile.r, tile.c, size);
+    const p = pos(tile.r, tile.c, size, tw, th, head);
+    const farmView = ui.view === "farm";
     let label = tile.building ? Zox.BUILDINGS[tile.building].name : Zox.Map.describeTerrain(tile.terrain);
     if (tile.building === "farm") {
-      label = Zox.Sim.farmMature(tile) ? "Regen farm" : "Farmland, year " + Zox.Sim.farmProgress(tile).year + " of 5";
+      const farm = Zox.Sim.getFarm(ui.state, tile.farmId);
+      if (farm) {
+        label = farm.name + (Zox.Sim.farmMature(farm) ? ", regen" : ", year " + Zox.Sim.farmProgress(farm).year + " of 5");
+      }
     }
+    if (tile.landmark === "barn") label = "Farmhouse";
     const banks = bankBits(tiles, tile.r, tile.c);
     const seed = tile.r * 12 + tile.c;
     let volume = "";
     if (tile.building) volume = pieceSVG(tile.building, seed);
+    else if (tile.landmark === "barn") volume = pieceSVG("farm", seed);
     else if (tile.terrain === "grove") volume = groveTrees(seed);
 
     return (
@@ -231,34 +266,41 @@
       `<span class="iso-ring"></span>` +
       `<span class="iso-left"></span>` +
       `<span class="iso-right"></span>` +
-      `<span class="iso-cap">${capDecor(tile)}</span>` +
+      `<span class="iso-cap">${capDecor(tile, farmView)}</span>` +
       volume +
-      regenMeter(tile) +
+      regenMeter(tile, ui) +
       `</span>` +
       `</button>`
     );
   }
 
-  function stageSize(size) {
+  function stageSize(size, tw, th, head) {
+    const tileW = tw || TW;
+    const tileH = th || TH;
+    const top = head == null ? HEAD : head;
     return {
-      w: size * TW,
-      h: HEAD + size * TH + 22,
+      w: size * tileW,
+      h: top + size * tileH + 22,
     };
   }
 
   function worldHTML(tiles, ui) {
     const size = tiles.length;
-    const dim = stageSize(size);
+    const zoom = ui.view === "farm";
+    const tw = zoom ? 70 : TW;
+    const th = zoom ? 35 : TH;
+    const head = zoom ? 44 : HEAD;
+    const dim = stageSize(size, tw, th, head);
     const cells = [];
     const order = [];
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) order.push(tiles[r][c]);
     }
     order.sort((a, b) => a.r + a.c - (b.r + b.c) || a.r - b.r);
-    for (const tile of order) cells.push(tileHTML(tiles, tile, ui));
+    for (const tile of order) cells.push(tileHTML(tiles, tile, ui, tw, th, head));
 
     return (
-      `<div class="iso-stage" style="width:${dim.w}px;height:${dim.h}px">` +
+      `<div class="iso-stage" style="width:${dim.w}px;height:${dim.h}px;--tw:${tw}px;--th:${th}px;--cols:${size};--head:${head}px">` +
       `<div class="iso-earth" aria-hidden="true"></div>` +
       cells.join("") +
       `</div>`
@@ -266,7 +308,7 @@
   }
 
   function syncFlags(grid, ui) {
-    const tiles = ui.state.tiles;
+    const tiles = boardTiles(ui);
     const buttons = grid.querySelectorAll("[data-r]");
     for (let i = 0; i < buttons.length; i++) {
       const btn = buttons[i];

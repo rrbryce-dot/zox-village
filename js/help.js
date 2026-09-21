@@ -6,14 +6,14 @@
 
   function snapshot(ui) {
     const state = ui.state;
-    const farms = Zox.Map.tilesOf(state.tiles, "farm").map((tile) => Zox.Sim.farmBooks(tile));
+    const farms = (state.farms || []).map((farm) => Zox.Sim.farmBooks(farm));
     const converting = farms.filter((f) => !f.mature);
     const mature = farms.filter((f) => f.mature);
-    const homes = Zox.Map.tilesOf(state.tiles, "home").length;
-    const solar = Zox.Map.tilesOf(state.tiles, "solar").length;
-    const compost = Zox.Map.tilesOf(state.tiles, "compost").length;
-    const parks = Zox.Map.tilesOf(state.tiles, "park").length;
-    const rails = Zox.Map.tilesOf(state.tiles, "rail").length;
+    const homes = Zox.Sim.buildingsOf(state, "home").length;
+    const solar = Zox.Sim.buildingsOf(state, "solar").length;
+    const compost = Zox.Sim.buildingsOf(state, "compost").length;
+    const parks = Zox.Sim.buildingsOf(state, "park").length;
+    const rails = Zox.Sim.buildingsOf(state, "rail").length;
     const inc = state.lastIncome || {};
     const paid = !!(state.lastDelta || state.season > 1);
     return {
@@ -37,6 +37,8 @@
       energyDemand: state.energyDemand,
       inc,
       tool: ui.tool,
+      view: ui.view,
+      farmName: ui.view === "farm" && ui.farmId ? (Zox.Sim.getFarm(state, ui.farmId) || {}).name : "",
       farmCost: Zox.BUILDINGS.farm.cost,
       trad: Zox.FARM_MODELS.traditional,
       regen: Zox.FARM_MODELS.regenerative,
@@ -60,7 +62,7 @@
         s.money +
         " in seed money. Buy farmland ($" +
         s.farmCost +
-        ") on a meadow, then turn the season. This board is farms, orchards, rail, and compost."
+        ") on the valley map. You walk that farm next — compost and rail go on the farm board, not the valley."
       );
     }
     if (s.farms === 0) {
@@ -71,7 +73,7 @@
         (s.inc.net || 0) +
         ". You do not drop an LIC building here. Buy farmland ($" +
         s.farmCost +
-        ") — that city capital is what the fields are for."
+        ") on the valley map, then walk that farm. That city capital is what the fields are for."
       );
     }
     if (s.farms > 0 && s.mature === 0) {
@@ -158,8 +160,9 @@
     return (
       "Buy farmland for $" +
       s.farmCost +
-      ". For five seasons it is converting: thin crop check, shrinking chem bill. At maturity the chem bill hits zero — animals graze the cover, manure stays, net $16. Harvest is cash, not supper." +
+      " on the valley map. You then walk that farm — compost, power, rail, orchards, and homes go on its board. For five seasons the farm is converting: thin crop check, shrinking chem bill. At maturity the chem bill hits zero — animals graze the cover, manure stays, net $16. Harvest is cash, not supper." +
       extra +
+      (s.view === "farm" && s.farmName ? " You're on " + s.farmName + " now." : "") +
       " Farm models (M) puts Traditional vs Zox side by side."
     );
   }
@@ -170,7 +173,7 @@
       s.licRent +
       " a season, arrive on the income strip as LIC rent." +
       (s.paid ? " Last season that line was $" + (s.inc.apartments || s.licRent) + "." : " Hit Next Season to see the first check.") +
-      " Loop: city capital → farmland here → five-year regen → crops buy more land."
+      " Loop: city capital → buy a farm here → walk it → five-year regen → crops buy more land."
     );
   }
 
@@ -195,9 +198,12 @@
   function placeReply(s) {
     const tool = s.tool === "inspect" ? "Look" : s.tool;
     return (
-      "This map is the farm section: farmland, homes, power, compost, rail, orchards. Pick a tool, then click a meadow or grove. Creek stays creek. You do not place the LIC building — that capital is off-map. Look reads a tile. Clear lot refunds about half. Selected tool: " +
+      (s.view === "farm"
+        ? "You're on a farm board. Place compost, power, rail, orchards, and homes here. Back to map (B) buys the next parcel."
+        : "Valley map: buy farmland, then you walk that farm. Improvements are not placed on the valley.") +
+      " Creek stays creek. You do not place the LIC building. Look reads a tile. Clear lot refunds about half. Selected tool: " +
       tool +
-      ". Keys 1–8 pick tools."
+      "."
     );
   }
 
@@ -377,11 +383,11 @@
     });
     if (close) close.addEventListener("click", shut);
 
-    let preferOpen = true;
+    let preferOpen = false;
     try {
-      preferOpen = sessionStorage.getItem("zox-chat-open") !== "0";
+      preferOpen = sessionStorage.getItem("zox-chat-open") === "1";
     } catch (err) {
-      preferOpen = true;
+      preferOpen = false;
     }
     if (preferOpen) open();
     else shut();

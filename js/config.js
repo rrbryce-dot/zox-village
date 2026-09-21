@@ -15,7 +15,7 @@
       energyUse: 2,
       waste: 2,
       upkeep: 2,
-      hint: "Four chairs at the table. Needs power. Tidier beside a compost heap.",
+      hint: "Four chairs on this farm. Needs a power yard on this same board. Tidier beside a compost heap.",
     },
     farm: {
       id: "farm",
@@ -32,7 +32,7 @@
       youngNature: 0,
       youngWaste: 3,
       youngCredits: 1,
-      hint: "Buy the field. Crops pay for the next one. Soil takes five years to drop the chem bill and run on graze and manure.",
+      hint: "Buy a parcel on the valley map with LIC capital. You walk that farm next. Soil takes five years to drop the chem bill.",
     },
     solar: {
       id: "solar",
@@ -41,7 +41,7 @@
       cost: 56,
       energy: 6,
       upkeep: 1,
-      hint: "Quiet kilowatts. Homes stop arguing about the fuse box.",
+      hint: "Quiet kilowatts on this farm. Homes here stop arguing about the fuse box.",
     },
     compost: {
       id: "compost",
@@ -53,7 +53,7 @@
       wasteFactor: 0.4,
       nature: 1,
       upkeep: 1,
-      hint: "Scraps become soil. Homes and farms in a 2-tile walk stay neat.",
+      hint: "On this farm. Scraps become soil. Homes and the crop in a 2-tile walk stay neat.",
     },
     rail: {
       id: "rail",
@@ -61,7 +61,7 @@
       short: "Rail",
       cost: 48,
       upkeep: 1,
-      hint: "Lay two or more adjoining tiles. Nearby lots earn more and feel closer.",
+      hint: "On this farm. Lay two or more adjoining tiles. Nearby lots earn more and feel closer.",
     },
     park: {
       id: "park",
@@ -73,7 +73,7 @@
       wasteSink: 1,
       upkeep: 0,
       credits: 3,
-      hint: "Sunday walking. Birds come back. A little carbon credit on the side.",
+      hint: "On this farm. Sunday walking. Birds come back. A little carbon credit on the side.",
     },
   };
 
@@ -85,7 +85,22 @@
     { id: "compost", kind: "build" },
     { id: "rail", kind: "build" },
     { id: "park", kind: "build" },
-    { id: "bulldoze", name: "Clear lot", kind: "tool", hint: "Pull a building. You get about half the timber back." },
+    { id: "bulldoze", name: "Clear lot", kind: "tool", hint: "Pull an improvement. You get about half the timber back. The farm deed stays on the map." },
+  ];
+
+  const WORLD_TOOLS = [
+    { id: "inspect", name: "Look", kind: "tool", hint: "Read a parcel. Click a farm you already bought to walk the fields." },
+    { id: "farm", kind: "build" },
+  ];
+
+  const FARM_TOOLS = [
+    { id: "inspect", name: "Look", kind: "tool", hint: "Read a lot on this farm. No cost." },
+    { id: "home", kind: "build" },
+    { id: "solar", kind: "build" },
+    { id: "compost", kind: "build" },
+    { id: "rail", kind: "build" },
+    { id: "park", kind: "build" },
+    { id: "bulldoze", name: "Clear lot", kind: "tool", hint: "Pull an improvement on this farm. About half the timber comes back." },
   ];
 
   const GOAL = {
@@ -154,6 +169,13 @@
     groveCount: 11,
   };
 
+  const FARM_MAP = {
+    size: 7,
+    groveCount: 2,
+  };
+
+  const FARM_NAMES = ["Westbrook Field", "Porch Acre", "Song Field", "Mill Flat", "North Meadow", "Jake's Parcel"];
+
   const COPY = {
     title: "ZOX Village",
     tag: "A valley that pays its own way",
@@ -173,11 +195,15 @@
 
   Zox.BUILDINGS = BUILDINGS;
   Zox.TOOLS = TOOLS;
+  Zox.WORLD_TOOLS = WORLD_TOOLS;
+  Zox.FARM_TOOLS = FARM_TOOLS;
   Zox.GOAL = GOAL;
   Zox.START = START;
   Zox.CARBON = CARBON;
   Zox.LIC = LIC;
   Zox.FARM_MODELS = FARM_MODELS;
   Zox.MAP = MAP;
+  Zox.FARM_MAP = FARM_MAP;
+  Zox.FARM_NAMES = FARM_NAMES;
   Zox.COPY = COPY;
 })(window);

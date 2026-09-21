@@ -13,14 +13,74 @@
     if (state.log.length > 10) state.log.length = 10;
   }
 
-  function farmMature(tile) {
-    if (!tile || tile.building !== "farm") return false;
-    return (tile.regenAge || 0) >= Zox.BUILDINGS.farm.convertYears;
+  function getFarm(state, id) {
+    if (!state || !id || !state.farms) return null;
+    for (let i = 0; i < state.farms.length; i++) {
+      if (state.farms[i].id === id) return state.farms[i];
+    }
+    return null;
   }
 
-  function farmProgress(tile) {
+  function resolveFarm(state, target) {
+    if (!target) return null;
+    if (target.tiles && target.id) return target;
+    if (state && target.farmId) return getFarm(state, target.farmId);
+    if (target.regenAge != null && target.building === "farm" && !target.tiles) {
+      return target;
+    }
+    return null;
+  }
+
+  function tilesForView(state, farmId) {
+    if (!farmId) return state.tiles;
+    const farm = getFarm(state, farmId);
+    return farm ? farm.tiles : state.tiles;
+  }
+
+  function buildingsOf(state, id) {
+    const found = [];
+    for (let i = 0; i < state.farms.length; i++) {
+      const farm = state.farms[i];
+      const lots = Zox.Map.tilesOf(farm.tiles, id);
+      for (let j = 0; j < lots.length; j++) {
+        found.push({ tile: lots[j], farm: farm });
+      }
+    }
+    return found;
+  }
+
+  function standingGroves(state) {
+    const groves = [];
+    Zox.Map.forEachTile(state.tiles, (tile) => {
+      if (tile.terrain === "grove" && !tile.building) groves.push(tile);
+    });
+    for (let i = 0; i < state.farms.length; i++) {
+      Zox.Map.forEachTile(state.farms[i].tiles, (tile) => {
+        if (tile.terrain === "grove" && !tile.building) groves.push(tile);
+      });
+    }
+    return groves;
+  }
+
+  function nameFarm(state, tile) {
+    const n = state.farms.length + 1;
+    if (Zox.Map.adjacentTerrain(state.tiles, tile.r, tile.c, "water")) {
+      return n === 1 ? "Creek Bend Farm" : "Creek Lot " + n;
+    }
+    if (tile.terrain === "grove") return "Grove Farm " + n;
+    const names = Zox.FARM_NAMES;
+    const base = names[(n - 1) % names.length];
+    return n > names.length ? base + " " + n : base;
+  }
+
+  function farmMature(farm) {
+    if (!farm) return false;
+    return (farm.regenAge || 0) >= Zox.BUILDINGS.farm.convertYears;
+  }
+
+  function farmProgress(farm) {
     const need = Zox.BUILDINGS.farm.convertYears;
-    const age = tile && tile.building === "farm" ? tile.regenAge || 0 : 0;
+    const age = farm ? farm.regenAge || 0 : 0;
     const mature = age >= need;
     return {
       age,
@@ -31,12 +91,10 @@
     };
   }
 
-  function farmBooks(tile) {
+  function farmBooks(farm) {
     const models = Zox.FARM_MODELS;
-    if (!tile || tile.building !== "farm") {
-      return null;
-    }
-    if (farmMature(tile)) {
+    if (!farm) return null;
+    if (farmMature(farm)) {
       const row = models.regenerative;
       return {
         model: "regenerative",
@@ -50,7 +108,7 @@
         note: row.note,
       };
     }
-    const prog = farmProgress(tile);
+    const prog = farmProgress(farm);
     const row = models.converting.years[prog.year - 1] || models.converting.years[0];
     return {
       model: "converting",
@@ -65,9 +123,9 @@
     };
   }
 
-  function farmYield(tile) {
+  function farmYield(farm) {
     const def = Zox.BUILDINGS.farm;
-    const books = farmBooks(tile);
+    const books = farmBooks(farm);
     const mature = !!(books && books.mature);
     return {
       mature,
@@ -120,6 +178,8 @@
     return {
       seed: s,
       tiles: Zox.Map.generateMap(Zox.MAP.size, s),
+      farms: [],
+      nextFarmId: 1,
       money: Zox.START.money,
       waste: Zox.START.waste,
       nature: Zox.START.nature,
@@ -137,7 +197,7 @@
       log: [
         {
           season: 1,
-          text: "LIC capital buys the next field. Crops pay it forward.",
+          text: "LIC capital buys the next field. Walk the farm to plant the rest.",
         },
       ],
     };
@@ -156,8 +216,8 @@
   }
 
   function recountEnergyAndPeople(state) {
-    const homes = Zox.Map.tilesOf(state.tiles, "home");
-    const yards = Zox.Map.tilesOf(state.tiles, "solar");
+    const homes = buildingsOf(state, "home");
+    const yards = buildingsOf(state, "solar");
     state.population = homes.length * Zox.BUILDINGS.home.pop;
     state.energyDemand = homes.length * Zox.BUILDINGS.home.energyUse;
     state.energySupply = yards.length * Zox.BUILDINGS.solar.energy;
@@ -166,18 +226,35 @@
   function canBuildOn(tile) {
     if (!tile) return { ok: false, why: "That is off the map." };
     if (tile.terrain === "water") return { ok: false, why: "Creek stays creek." };
+    if (tile.landmark === "barn") return { ok: false, why: "That's the farmhouse. Place in the fields." };
     if (tile.building) return { ok: false, why: "Someone already claimed that lot." };
     return { ok: true, why: "" };
   }
 
-  function canPlace(state, r, c, buildingId) {
+  function canPlace(state, r, c, buildingId, farmId) {
     if (state.status !== "playing") return { ok: false, why: "This valley already found its ending." };
     if (buildingId === "apartment") {
       return { ok: false, why: "The LIC building is in Long Island City, not on this valley." };
     }
+    if (buildingId === "farm") {
+      if (farmId) return { ok: false, why: "You're already on a farm. Back to the map to buy another parcel." };
+      const def = Zox.BUILDINGS.farm;
+      const tile = Zox.Map.getTile(state.tiles, r, c);
+      const land = canBuildOn(tile);
+      if (!land.ok) return land;
+      if (state.money < def.cost) {
+        return { ok: false, why: "Need $" + def.cost + ". The jar has $" + state.money + "." };
+      }
+      return { ok: true, why: "" };
+    }
+    if (!farmId) {
+      return { ok: false, why: "Improvements go on a farm. Buy a parcel, then walk the fields." };
+    }
+    const farm = getFarm(state, farmId);
+    if (!farm) return { ok: false, why: "That farm is not on the books." };
     const def = Zox.BUILDINGS[buildingId];
     if (!def) return { ok: false, why: "Unknown building." };
-    const tile = Zox.Map.getTile(state.tiles, r, c);
+    const tile = Zox.Map.getTile(farm.tiles, r, c);
     const land = canBuildOn(tile);
     if (!land.ok) return land;
     if (state.money < def.cost) {
@@ -186,106 +263,145 @@
     return { ok: true, why: "" };
   }
 
-  function place(state, r, c, buildingId) {
-    const check = canPlace(state, r, c, buildingId);
+  function place(state, r, c, buildingId, farmId) {
+    const check = canPlace(state, r, c, buildingId, farmId);
     if (!check.ok) return check;
-    const tile = state.tiles[r][c];
+    if (buildingId === "farm") {
+      const tile = state.tiles[r][c];
+      const def = Zox.BUILDINGS.farm;
+      state.money -= def.cost;
+      if (tile.terrain === "grove") {
+        state.nature = clamp(state.nature - 7, 0, 100);
+        tile.terrain = "meadow";
+        pushLog(state, "Cleared a grove for the deed. The birds took it personally.");
+      }
+      const farm = {
+        id: "farm-" + state.nextFarmId,
+        name: nameFarm(state, tile),
+        wr: r,
+        wc: c,
+        regenAge: 0,
+        tiles: Zox.Map.generateFarmMap(Zox.FARM_MAP.size, state.seed ^ (r * 97 + c * 13 + state.nextFarmId * 17)),
+      };
+      state.nextFarmId += 1;
+      state.farms.push(farm);
+      tile.building = "farm";
+      tile.farmId = farm.id;
+      recountEnergyAndPeople(state);
+      pushLog(state, farm.name + " is yours. Walk the fields. Compost and rail stay on this farm.");
+      return { ok: true, why: "", enter: farm.id };
+    }
+
+    const farm = getFarm(state, farmId);
+    const tile = farm.tiles[r][c];
     const def = Zox.BUILDINGS[buildingId];
     state.money -= def.cost;
     if (tile.terrain === "grove") {
       state.nature = clamp(state.nature - 7, 0, 100);
       tile.terrain = "meadow";
-      pushLog(state, "Cleared a grove for the " + def.short.toLowerCase() + ". The birds took it personally.");
+      pushLog(state, "Cleared a grove on " + farm.name + " for the " + def.short.toLowerCase() + ".");
     }
     tile.building = buildingId;
-    if (buildingId === "farm") tile.regenAge = 0;
-    else delete tile.regenAge;
     recountEnergyAndPeople(state);
     const notes = {
-      home: "A house with a green roof. Four more names on the mailbox.",
-      farm: "Field's yours. The chem bill shrinks for five years. Then graze and manure carry the lot.",
-      solar: "The yard starts humming. Kettles will have an easier time.",
-      compost: "The heap is working. It does not smell like a lecture.",
-      rail: "Rail in the grass. Link another tile and the far lots join the talk.",
-      park: "An orchard for Sunday. Someone will bring a pie.",
+      home: "A house on " + farm.name + ". Four more names on the mailbox.",
+      solar: "The yard on " + farm.name + " starts humming.",
+      compost: "The heap is working on " + farm.name + ". It does not smell like a lecture.",
+      rail: "Rail in the grass on " + farm.name + ". Link another tile and the far lots join the talk.",
+      park: "An orchard on " + farm.name + " for Sunday. Someone will bring a pie.",
     };
-    pushLog(state, notes[buildingId] || "Built.");
+    pushLog(state, notes[buildingId] || "Built on " + farm.name + ".");
     return { ok: true, why: "" };
   }
 
-  function canClear(state, r, c) {
+  function canClear(state, r, c, farmId) {
     if (state.status !== "playing") return { ok: false, why: "This valley already found its ending." };
-    const tile = Zox.Map.getTile(state.tiles, r, c);
+    if (!farmId) {
+      const world = Zox.Map.getTile(state.tiles, r, c);
+      if (world && world.building === "farm") {
+        return { ok: false, why: "The deed stays. Walk the farm to pull improvements." };
+      }
+      return { ok: false, why: "Nothing to pull on the valley map." };
+    }
+    const farm = getFarm(state, farmId);
+    if (!farm) return { ok: false, why: "That farm is not on the books." };
+    const tile = Zox.Map.getTile(farm.tiles, r, c);
     if (!tile || !tile.building) return { ok: false, why: "Nothing to pull up." };
+    if (tile.landmark === "barn") return { ok: false, why: "The farmhouse stays." };
     return { ok: true, why: "" };
   }
 
-  function clearLot(state, r, c) {
-    const check = canClear(state, r, c);
+  function clearLot(state, r, c, farmId) {
+    const check = canClear(state, r, c, farmId);
     if (!check.ok) return check;
-    const tile = state.tiles[r][c];
+    const farm = getFarm(state, farmId);
+    const tile = farm.tiles[r][c];
     const def = Zox.BUILDINGS[tile.building];
     if (!def) {
       tile.building = null;
-      delete tile.regenAge;
       recountEnergyAndPeople(state);
       return { ok: true, why: "" };
     }
     const refund = Math.floor(def.cost * 0.5);
     tile.building = null;
-    delete tile.regenAge;
     state.money += refund;
     recountEnergyAndPeople(state);
-    pushLog(state, "Cleared a " + def.short.toLowerCase() + ". $" + refund + " back in the jar.");
+    pushLog(state, "Cleared a " + def.short.toLowerCase() + " on " + farm.name + ". $" + refund + " back in the jar.");
     return { ok: true, why: "" };
   }
 
-  function inspect(state, r, c) {
+  function inspect(state, r, c, farmId) {
+    if (farmId) {
+      const farm = getFarm(state, farmId);
+      if (!farm) return null;
+      const tile = Zox.Map.getTile(farm.tiles, r, c);
+      if (!tile) return null;
+      const connected = Zox.Map.connectedSet(farm.tiles);
+      const def = tile.building ? Zox.BUILDINGS[tile.building] : null;
+      const nearCompost = Zox.Map.hasNeighborBuilding(farm.tiles, r, c, "compost", 2);
+      const nearPark = Zox.Map.hasNeighborBuilding(farm.tiles, r, c, "park", 1);
+      const onLine = Zox.Map.isConnected(connected, r, c);
+      const bits = [Zox.Map.describeTerrain(tile.terrain)];
+      let title = def ? def.name : tile.landmark === "barn" ? "Farmhouse" : "Working soil";
+      if (def) bits.push(def.name);
+      else if (tile.landmark === "barn") bits.push("Farmhouse on " + farm.name);
+      else bits.push("Field on " + farm.name);
+      const books = farmBooks(farm);
+      bits.push(farm.name + " — " + books.label);
+      bits.push("Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net);
+      if (tile.terrain === "water") bits.push("Leave the ditch. The farm drinks here.");
+      if (tile.terrain === "grove" && !tile.building) bits.push("Standing grove. A little carbon credit each season.");
+      if (nearCompost) bits.push("In compost range");
+      if (nearPark) bits.push("Beside an orchard");
+      if (onLine && def) bits.push("On the rail");
+      return { r, c, tile, def, farm, title, lines: bits };
+    }
+
     const tile = Zox.Map.getTile(state.tiles, r, c);
     if (!tile) return null;
-    const connected = Zox.Map.connectedSet(state.tiles);
     const def = tile.building ? Zox.BUILDINGS[tile.building] : null;
-    const nearCompost = Zox.Map.hasNeighborBuilding(state.tiles, r, c, "compost", 2);
-    const nearPark = Zox.Map.hasNeighborBuilding(state.tiles, r, c, "park", 1);
-    const onLine = Zox.Map.isConnected(connected, r, c);
     const bits = [Zox.Map.describeTerrain(tile.terrain)];
     let title = def ? def.name : "Open lot";
     if (def) bits.push(def.name);
     else bits.push("Open lot");
-    if (tile.building === "farm") {
-      const books = farmBooks(tile);
-      if (books.mature) {
-        title = "Zox regenerative";
-        bits[1] = "Zox regenerative";
-        bits.push("Model: Zox regenerative — no chem bill.");
-        bits.push("Gross $" + books.gross + " − inputs $0 = net $" + books.net);
-        bits.push("Animals graze the cover. Manure stays. Carbon credits on the side.");
-      } else {
-        title = "Farmland";
-        bits.push("Model: " + books.label);
-        bits.push("Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net);
-        bits.push("Still buying some nitrogen. Full graze cycle waits on year five.");
-      }
+    const farm = tile.farmId ? getFarm(state, tile.farmId) : null;
+    if (farm) {
+      const books = farmBooks(farm);
+      title = farm.name;
+      bits[1] = farm.name;
+      bits.push(books.mature ? "Zox regenerative — no chem bill." : books.label);
+      bits.push("Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net);
+      bits.push("Click to walk this farm. Improvements stay on its board.");
+    } else if (tile.terrain === "water") {
+      bits.push("Leave it. The valley drinks here.");
+    } else {
+      bits.push("Buy farmland here. You will walk that farm next.");
     }
-    if (tile.terrain === "water") bits.push("Leave it. The valley drinks here.");
     if (tile.terrain === "grove" && !tile.building) bits.push("Standing grove. A little carbon credit each season.");
-    if (nearCompost) bits.push("In compost range");
-    if (nearPark) bits.push("Beside an orchard");
-    if (onLine && def) bits.push("On the rail");
-    if (tile.building === "farm" && Zox.Map.adjacentTerrain(state.tiles, r, c, "water")) {
-      bits.push("Creek irrigation");
-    }
     if (tile.building === "apartment") {
       bits.push("That's leftover city brick. LIC capital lives in Long Island City now — off this map.");
     }
-    return {
-      r,
-      c,
-      tile,
-      def,
-      title,
-      lines: bits,
-    };
+    return { r, c, tile, def, farm, title, lines: bits };
   }
 
   function evaluateGoals(state) {
@@ -356,28 +472,22 @@
     if (state.status !== "playing") return { ok: false, why: "The season already turned." };
 
     const before = snapshotMeters(state);
-    const tiles = state.tiles;
-    const homes = Zox.Map.tilesOf(tiles, "home");
-    const farms = Zox.Map.tilesOf(tiles, "farm");
-    const yards = Zox.Map.tilesOf(tiles, "solar");
-    const hubs = Zox.Map.tilesOf(tiles, "compost");
-    const parks = Zox.Map.tilesOf(tiles, "park");
-    const rails = Zox.Map.tilesOf(tiles, "rail");
-    const groves = [];
-    Zox.Map.forEachTile(tiles, (tile) => {
-      if (tile.terrain === "grove" && !tile.building) groves.push(tile);
-    });
+    const homes = buildingsOf(state, "home");
+    const yards = buildingsOf(state, "solar");
+    const hubs = buildingsOf(state, "compost");
+    const parks = buildingsOf(state, "park");
+    const rails = buildingsOf(state, "rail");
+    const groves = standingGroves(state);
 
     const justMatured = [];
-    for (const farm of farms) {
+    for (let i = 0; i < state.farms.length; i++) {
+      const farm = state.farms[i];
       const was = farmMature(farm);
       farm.regenAge = (farm.regenAge || 0) + 1;
       if (!was && farmMature(farm)) justMatured.push(farm);
     }
 
-    const connected = Zox.Map.connectedSet(tiles);
-    const railLive = Zox.Map.railNetworks(tiles).some((n) => n.length >= 2);
-
+    let railLive = false;
     const energySupply = yards.length * Zox.BUILDINGS.solar.energy;
     const energyDemand = homes.length * Zox.BUILDINGS.home.energyUse;
     let energyLeft = energySupply;
@@ -389,7 +499,6 @@
       }
     });
     const unpowered = homes.length - poweredHomes;
-
     const people = homes.length * Zox.BUILDINGS.home.pop;
 
     const streams = emptyIncome();
@@ -398,47 +507,55 @@
     let natureDelta = groves.length * 0.35 + hubs.length * Zox.BUILDINGS.compost.nature;
     let happyDelta = 0;
 
-    for (const farm of farms) {
+    for (let i = 0; i < state.farms.length; i++) {
+      const farm = state.farms[i];
       const y = farmYield(farm);
+      const connected = Zox.Map.connectedSet(farm.tiles);
+      const farmRail = Zox.Map.railNetworks(farm.tiles).some((n) => n.length >= 2);
+      if (farmRail) railLive = true;
+      const hasCompost = Zox.Map.tilesOf(farm.tiles, "compost").length > 0;
+      const irrigated =
+        Zox.Map.adjacentTerrain(state.tiles, farm.wr, farm.wc, "water") ||
+        Zox.Map.countTerrain(farm.tiles, "water") > 0;
       let pay = y.income;
-      if (Zox.Map.adjacentTerrain(tiles, farm.r, farm.c, "water")) pay += 3;
-      if (Zox.Map.hasNeighborBuilding(tiles, farm.r, farm.c, "compost", 2)) {
+      if (irrigated) pay += 3;
+      if (hasCompost) {
         pay += 2;
         natureDelta += 1;
       }
-      if (Zox.Map.isConnected(connected, farm.r, farm.c)) pay = Math.round(pay * 1.35);
+      if (farmRail) pay = Math.round(pay * 1.35);
       streams.cropGross += pay;
       streams.inputs += y.inputs;
       streams.crops += pay - y.inputs;
       streams.credits += y.credits;
       streams.upkeep += Zox.BUILDINGS.farm.upkeep;
-      const factor = Zox.Map.hasNeighborBuilding(tiles, farm.r, farm.c, "compost", 2)
-        ? Zox.BUILDINGS.compost.wasteFactor
-        : 1;
+      const factor = hasCompost ? Zox.BUILDINGS.compost.wasteFactor : 1;
       wasteIn += y.waste * factor;
       natureDelta += y.nature;
+      void connected;
     }
 
     homes.forEach((home, i) => {
       const def = Zox.BUILDINGS.home;
+      const board = home.farm.tiles;
       const powered = i < poweredHomes;
-      const factor = Zox.Map.hasNeighborBuilding(tiles, home.r, home.c, "compost", 2)
+      const factor = Zox.Map.hasNeighborBuilding(board, home.tile.r, home.tile.c, "compost", 2)
         ? Zox.BUILDINGS.compost.wasteFactor
         : 1;
       wasteIn += def.waste * factor * (powered ? 1 : 1.15);
       streams.upkeep += def.upkeep;
       if (powered) streams.other += 2;
-      if (Zox.Map.isConnected(connected, home.r, home.c)) happyDelta += 2;
-      if (Zox.Map.hasNeighborBuilding(tiles, home.r, home.c, "park", 1)) happyDelta += 2;
+      if (Zox.Map.isConnected(Zox.Map.connectedSet(board), home.tile.r, home.tile.c)) happyDelta += 2;
+      if (Zox.Map.hasNeighborBuilding(board, home.tile.r, home.tile.c, "park", 1)) happyDelta += 2;
       if (powered) happyDelta += 1;
       else happyDelta -= 4;
     });
 
     streams.apartments = Zox.LIC.income;
 
-    for (const yard of yards) streams.upkeep += Zox.BUILDINGS.solar.upkeep;
-    for (const hub of hubs) streams.upkeep += Zox.BUILDINGS.compost.upkeep;
-    for (const rail of rails) streams.upkeep += Zox.BUILDINGS.rail.upkeep;
+    for (let i = 0; i < yards.length; i++) streams.upkeep += Zox.BUILDINGS.solar.upkeep;
+    for (let i = 0; i < hubs.length; i++) streams.upkeep += Zox.BUILDINGS.compost.upkeep;
+    for (let i = 0; i < rails.length; i++) streams.upkeep += Zox.BUILDINGS.rail.upkeep;
 
     natureDelta += parks.length * Zox.BUILDINGS.park.nature;
     happyDelta += parks.length * Zox.BUILDINGS.park.happy;
@@ -487,16 +604,16 @@
     if (justMatured.length) {
       flavor.push(
         justMatured.length > 1
-          ? "Two lots dropped the chem bill. Graze and manure now. That crop check buys more soil."
-          : "This lot dropped the chem bill. Graze and manure now. That crop check buys more soil."
+          ? "Two farms dropped the chem bill. Graze and manure now. That crop check buys more soil."
+          : justMatured[0].name + " dropped the chem bill. Graze and manure now."
       );
     }
     if (unpowered > 0) flavor.push("Lights flickered. Someone read by the window.");
-    if (!flavor.length && farms.length && state.money >= Zox.BUILDINGS.farm.cost) {
-      flavor.push("LIC rent is in the jar from Long Island City. That can cover another field.");
+    if (!flavor.length && state.farms.length && state.money >= Zox.BUILDINGS.farm.cost) {
+      flavor.push("LIC rent is in the jar from Long Island City. That can cover another farm.");
     }
-    if (!flavor.length && farms.length === 0) {
-      flavor.push("LIC rent landed from the city. Buy farmland — this map is the farm section.");
+    if (!flavor.length && state.farms.length === 0) {
+      flavor.push("LIC rent landed from the city. Buy farmland — then walk that farm.");
     }
     if (!flavor.length && streams.crops >= 12) {
       flavor.push("The crop check hit the jar and left a little for the next field.");
@@ -505,7 +622,7 @@
       flavor.push("Carbon credits from the living lots. Not the main course, but they count.");
     }
     if (hubs.length && wasteIn - wasteOut < 1) flavor.push("The heap ate the week's scraps.");
-    if (railLive && !flavor.length) flavor.push("The rail made the west lots feel like part of town.");
+    if (railLive && !flavor.length) flavor.push("The rail made the far lots feel like part of the farm.");
     if (state.nature >= 70 && state.waste <= 22 && !flavor.length) flavor.push("Creek's running clearer this week.");
     if (!flavor.length) flavor.push("Another season. Crops pay for the next field.");
     pushLog(state, flavor[0]);
@@ -570,5 +687,9 @@
     farmYield,
     farmBooks,
     farmModelRows,
+    getFarm,
+    resolveFarm,
+    tilesForView,
+    buildingsOf,
   };
 })(window);

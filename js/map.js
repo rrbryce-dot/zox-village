@@ -94,6 +94,25 @@
     return tiles;
   }
 
+  function generateFarmMap(size, seed) {
+    const rng = createRng(seed);
+    const tiles = makeEmpty(size);
+    const ditchC = 2 + Math.floor(rng() * Math.max(1, size - 4));
+    for (let r = 1; r < size - 1; r++) {
+      if (rng() < 0.78) tiles[r][ditchC].terrain = "water";
+    }
+    plantGroves(tiles, size, rng, Zox.FARM_MAP.groveCount);
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (tiles[r][c].terrain === "meadow") {
+          tiles[r][c].landmark = "barn";
+          return tiles;
+        }
+      }
+    }
+    return tiles;
+  }
+
   function getTile(tiles, r, c) {
     if (!inBounds(tiles.length, r, c)) return null;
     return tiles[r][c];
@@ -205,6 +224,7 @@
     chebyshev,
     createRng,
     generateMap,
+    generateFarmMap,
     getTile,
     forEachTile,
     tilesOf,
