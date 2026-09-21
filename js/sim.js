@@ -172,7 +172,7 @@
   }
 
   function emptyIncome() {
-    return { crops: 0, cropGross: 0, inputs: 0, apartments: 0, credits: 0, other: 0, upkeep: 0, net: 0 };
+    return { crops: 0, cropGross: 0, inputs: 0, graze: 0, apartments: 0, credits: 0, other: 0, upkeep: 0, net: 0 };
   }
 
   /**
@@ -670,6 +670,13 @@
       else happyDelta -= 4;
     });
 
+    // End-of-season crop rent: animals graze, manure stays — revenue
+    for (let i = 0; i < state.farms.length; i++) {
+      const farm = state.farms[i];
+      const rent = farmMature(farm) ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting;
+      streams.graze += rent;
+    }
+
     streams.apartments = Zox.LIC.income;
 
     for (let i = 0; i < yards.length; i++) streams.upkeep += Zox.BUILDINGS.solar.upkeep;
@@ -696,7 +703,7 @@
       happyDelta += 3;
     }
 
-    streams.net = Math.round(streams.crops + streams.apartments + streams.credits + streams.other - streams.upkeep);
+    streams.net = Math.round(streams.crops + streams.graze + streams.apartments + streams.credits + streams.other - streams.upkeep);
     state.money = Math.round(state.money + streams.net);
     state.waste = clamp(Math.round(state.waste + wasteIn - wasteOut), 0, 100);
 
@@ -776,6 +783,9 @@
     }
     if (!flavor.length && state.health >= Zox.GOAL.healthMin && sequestered >= 12) {
       flavor.push("People are healthier on regen food. Carbon this season: " + sequestered + ".");
+    }
+    if (streams.graze > 0 && !flavor.length) {
+      flavor.push("Crop rent from the animals — they ate the stubble and left manure. +$" + streams.graze + ".");
     }
     if (!flavor.length && streams.credits >= 4) {
       flavor.push("Carbon credits $ from the living lots — separate from sequestration. Soil locked " + sequestered + " this season.");

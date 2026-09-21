@@ -92,7 +92,30 @@
             <p id="tool-cost" class="cost-line">Costs $48</p>
             <p id="tool-hint" class="hint">Buy the field. Crops pay for the next one.</p>
           </div>
-          <button type="button" id="next-season" class="btn primary">Next season</button>
+          <button type="button" id="next-season" class="btn primary season-btn" aria-label="End season: rent crop to animals">
+            <span class="season-btn-art" aria-hidden="true">
+              <svg viewBox="0 0 120 44" class="graze-svg">
+                <rect x="0" y="28" width="120" height="16" fill="#6b8a49"/>
+                <path d="M4 28 q6-14 12-14 q6 0 10 14" fill="#8a6a2c"/>
+                <path d="M22 28 q5-12 10-12 q5 0 9 12" fill="#9a7a38"/>
+                <path d="M40 28 q6-16 12-16 q6 0 11 16" fill="#7a5a28"/>
+                <ellipse cx="68" cy="26" rx="10" ry="7" fill="#c4a06a"/>
+                <circle cx="76" cy="22" r="4.5" fill="#b89058"/>
+                <circle cx="78.5" cy="21" r="0.8" fill="#2b2418"/>
+                <ellipse cx="92" cy="28" rx="8" ry="5.5" fill="#a87848"/>
+                <circle cx="98" cy="24" r="3.8" fill="#9a6840"/>
+                <circle cx="99.8" cy="23" r="0.7" fill="#2b2418"/>
+                <ellipse cx="72" cy="34" rx="2.2" ry="1.4" fill="#6a4a28" opacity="0.75"/>
+                <ellipse cx="86" cy="35" rx="2" ry="1.2" fill="#5a3a20" opacity="0.7"/>
+                <ellipse cx="96" cy="34" rx="1.8" ry="1.1" fill="#6a4a28" opacity="0.7"/>
+                <text x="8" y="12" fill="#f4ead3" font-size="8" font-weight="700">Rent the crop</text>
+              </svg>
+            </span>
+            <span class="season-btn-copy">
+              <strong>Next season</strong>
+              <small id="graze-pay-hint">Animals graze · manure stays · crop rent</small>
+            </span>
+          </button>
           <p id="keys-line" class="keys">Keys 1–2 pick tools. Click a farm to walk it. Enter turns the season.</p>
         </aside>
 

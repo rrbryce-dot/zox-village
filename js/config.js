@@ -129,6 +129,16 @@
    * Physical sequestration units per season (win meter) — not $ carbon credits.
    * Roughly: 2–3 mature farms + orchards/groves clears carbonMin in a season.
    */
+  /**
+   * End-of-season crop rent: animals graze leftover crop, manure stays.
+   * Mature regen fields rent higher — that is cash and soil.
+   */
+  const GRAZE_RENT = {
+    mature: 9,
+    converting: 4,
+    hint: "Rent the crop to the animals. They eat. They poop. You get paid and the soil gets manure.",
+  };
+
   const CARBON = {
     matureFarm: 10,
     convertingFarm: 3,
@@ -278,6 +288,7 @@
   Zox.FARM_TOOLS = FARM_TOOLS;
   Zox.GOAL = GOAL;
   Zox.START = START;
+  Zox.GRAZE_RENT = GRAZE_RENT;
   Zox.CARBON = CARBON;
   Zox.NUTRITION = NUTRITION;
   Zox.BOOK = BOOK;

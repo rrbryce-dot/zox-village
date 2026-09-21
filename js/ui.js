@@ -178,6 +178,7 @@
         `<span class="kicker">This season</span>` +
         `<span><i>Crops</i> <b>$${inc.crops}</b></span>` +
         (inc.inputs ? `<span><i>Chem bill</i> <b>−$${inc.inputs}</b></span>` : "") +
+        `<span><i>Crop rent</i> <b>$${inc.graze || 0}</b></span>` +
         `<span><i>LIC rent</i> <b>$${inc.apartments}</b></span>` +
         `<span><i>Carbon credits</i> <b>$${inc.credits}</b></span>` +
         `<span class="income-net"><i>Net</i> <b>${inc.net >= 0 ? "+" : ""}$${inc.net}</b></span>`;
@@ -345,6 +346,18 @@
 
       el("season").textContent = seasonLabel();
       el("next-season").disabled = ui.state.status !== "playing";
+      const grazePay = (ui.state.farms || []).reduce((sum, f) => {
+        return sum + (Zox.Sim.farmMature(f) ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting);
+      }, 0);
+      const nextBtn = el("next-season");
+      const payEl = el("graze-pay-hint");
+      if (payEl) {
+        payEl.textContent =
+          grazePay > 0
+            ? "Animals graze · manure stays · about +$" + grazePay + " crop rent"
+            : "Buy a farm first — then rent the crop to the animals";
+      }
+      if (nextBtn) nextBtn.setAttribute("aria-label", "End season: rent crop to animals, collect graze rent, turn the season");
 
       const log = el("log");
       log.innerHTML = ui.state.log
