@@ -310,7 +310,7 @@
         const prog = Zox.Sim.farmProgress(farm);
         title.textContent = farm.name;
         sub.textContent = prog.mature
-          ? "Zox regenerative — no chem bill. Improvements stay on this farm. Back to map for the next deed along the rail."
+          ? "Zox regenerative — no chem bill. Improvements stay on this farm."
           : "Year " + prog.year + " of " + prog.need + ". Compost, power, rail, orchards, and homes go here.";
         back.hidden = false;
         const afford = canAffordNextFarm();
@@ -321,11 +321,7 @@
           buyBtn.hidden = !afford;
           if (afford) {
             buyBtn.textContent =
-              "Buy farm #" +
-              (ui.state.farms.length + 1) +
-              " on the map ($" +
-              Zox.BUILDINGS.farm.cost +
-              ")";
+              "Buy next deed ($" + Zox.BUILDINGS.farm.cost + ")";
           }
         }
         if (place) place.textContent = "Improvements on this farm";
@@ -337,11 +333,11 @@
         title.textContent = "Corridor map";
         sub.textContent = rail.ready
           ? "Green rail lit solid Detroit → Jersey City. Keep the settlement and the circle healthy."
-          : "Long-term goal: build the green rail. Buy farms along the line, convert (5 seasons), buy the next. " +
+          : "Buy along the line, convert five seasons, buy the next. " +
             rail.lit +
             "/" +
             rail.need +
-            " rail segments lit.";
+            " segments lit.";
         back.hidden = true;
         back.classList.remove("is-hot");
         back.textContent = "Back to map";
@@ -351,11 +347,7 @@
           buyBtnW.hidden = !affordW;
           if (affordW) {
             buyBtnW.textContent =
-              "Buy farm #" +
-              (ui.state.farms.length + 1) +
-              " — click a deed ($" +
-              Zox.BUILDINGS.farm.cost +
-              ")";
+              "Buy next deed ($" + Zox.BUILDINGS.farm.cost + ")";
           }
         }
         if (place) place.textContent = "What to place";

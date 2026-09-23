@@ -362,31 +362,54 @@
 
   /**
    * Aerial corridor: Detroit → Toledo → Cleveland → Pittsburgh → Jersey City.
-   * Coordinates are percent of the map panel (0–100).
+   * Coordinates match assets/corridor-basemap.svg (view 960×620).
+   * lx/ly/anchor place the on-map name so it does not sit on another label.
+   * vdx/vdy offset the eco-village pin from the deed.
    */
   const CORRIDOR = {
+    view: { w: 960, h: 620 },
     cities: [
-      { id: "detroit", name: "Detroit", x: 6, y: 22, short: "DET" },
-      { id: "toledo", name: "Toledo", x: 18, y: 40, short: "TOL" },
-      { id: "cleveland", name: "Cleveland", x: 36, y: 38, short: "CLE" },
-      { id: "pittsburgh", name: "Pittsburgh", x: 58, y: 36, short: "PIT" },
-      { id: "jersey", name: "Jersey City", x: 92, y: 32, short: "JC" },
+      { id: "detroit", name: "Detroit", x: 115.6, y: 204, lx: 104, ly: 186, anchor: "end" },
+      { id: "toledo", name: "Toledo", x: 72, y: 287.1, lx: 56, ly: 278, anchor: "end" },
+      { id: "cleveland", name: "Cleveland", x: 236.4, y: 306.9, lx: 214, ly: 278, anchor: "middle" },
+      { id: "pittsburgh", name: "Pittsburgh", x: 386.7, y: 438.3, lx: 370, ly: 428, anchor: "end" },
+      { id: "jersey", name: "Jersey City", x: 912.9, y: 402.3, lx: 898, ly: 380, anchor: "end" },
     ],
-    /* Detroit→Toledo, then one straight run Toledo→Jersey City */
+    /* Detroit, then each deed in order, then Jersey City — lit segments follow the deeds. */
     railPath: [
-      { x: 6, y: 22 },
-      { x: 18, y: 40 },
-      { x: 92, y: 32 },
+      { x: 115.6, y: 204 },
+      { x: 84.4, y: 254.8 },
+      { x: 72, y: 287.1 },
+      { x: 145.8, y: 313.1 },
+      { x: 278.2, y: 297 },
+      { x: 316.4, y: 261 },
+      { x: 328.9, y: 356.5 },
+      { x: 529.8, y: 428.4 },
+      { x: 664, y: 460.6 },
+      { x: 861.3, y: 449.4 },
+      { x: 912.9, y: 402.3 },
     ],
     parcels: [
-      { id: "monroe", name: "Monroe Flat", x: 12, y: 31, order: 0 },
-      { id: "sandusky", name: "Sandusky Acre", x: 26, y: 39, order: 1 },
-      { id: "erie", name: "Erie Field", x: 36, y: 38, order: 2 },
-      { id: "ashtabula", name: "Ashtabula Parcel", x: 46, y: 37, order: 3 },
-      { id: "youngstown", name: "Youngstown Meadow", x: 54, y: 36, order: 4 },
-      { id: "altoona", name: "Altoona Bench", x: 66, y: 35, order: 5 },
-      { id: "harrisburg", name: "Harrisburg Lot", x: 76, y: 34, order: 6 },
-      { id: "princeton", name: "Princeton Acre", x: 86, y: 33, order: 7 },
+      { id: "monroe", name: "Monroe Flat", mapLabel: "Monroe", x: 84.4, y: 254.8, order: 0, lx: 108, ly: 244, anchor: "start", vdx: -16, vdy: -14 },
+      { id: "sandusky", name: "Sandusky Acre", mapLabel: "Sandusky", x: 145.8, y: 313.1, order: 1, lx: 146, ly: 338, anchor: "middle", vdx: 14, vdy: -14 },
+      { id: "erie", name: "Erie Field", mapLabel: "Erie", x: 278.2, y: 297, order: 2, lx: 298, ly: 314, anchor: "start", vdx: -16, vdy: -12 },
+      { id: "ashtabula", name: "Ashtabula Parcel", mapLabel: "Ashtabula", x: 316.4, y: 261, order: 3, lx: 330, ly: 232, anchor: "middle", vdx: 14, vdy: 12 },
+      { id: "youngstown", name: "Youngstown Meadow", mapLabel: "Youngstown", x: 328.9, y: 356.5, order: 4, lx: 354, ly: 378, anchor: "start", vdx: 14, vdy: -14 },
+      { id: "altoona", name: "Altoona Bench", mapLabel: "Altoona", x: 529.8, y: 428.4, order: 5, lx: 530, ly: 406, anchor: "middle", vdx: -16, vdy: -8 },
+      { id: "harrisburg", name: "Harrisburg Lot", mapLabel: "Harrisburg", x: 664, y: 460.6, order: 6, lx: 700, ly: 448, anchor: "start", vdx: -16, vdy: 4 },
+      { id: "princeton", name: "Princeton Acre", mapLabel: "Princeton", x: 861.3, y: 449.4, order: 7, lx: 812, ly: 428, anchor: "middle", vdx: 14, vdy: -10 },
+    ],
+    places: [
+      { text: "LAKE ERIE", x: 228, y: 196, anchor: "middle", kind: "water" },
+      { text: "OHIO", x: 188, y: 430, anchor: "middle", kind: "state" },
+      { text: "PENNSYLVANIA", x: 575, y: 188, anchor: "middle", kind: "state" },
+      { text: "NEW JERSEY", x: 800, y: 300, anchor: "middle", kind: "state" },
+      { text: "MICH.", x: 14, y: 118, anchor: "start", kind: "state" },
+      { text: "W. VA.", x: 470, y: 552, anchor: "middle", kind: "state" },
+      { text: "Buffalo", x: 500, y: 128, anchor: "start", kind: "minor" },
+      { text: "Erie", x: 406, y: 216, anchor: "start", kind: "minor" },
+      { text: "Akron", x: 236, y: 382, anchor: "middle", kind: "minor" },
+      { text: "NYC", x: 954, y: 356, anchor: "end", kind: "minor" },
     ],
     goalCopy:
       "Long-term goal: build the green rail from Detroit to Jersey City across four decades. LIC rent and crop net buy farmland along the line. Five seasons convert a farm; mature farms and eco-villages light the rail solid.",

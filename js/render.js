@@ -428,12 +428,23 @@
       if (a && b) litPaths.push("M " + a.x + " " + a.y + " L " + b.x + " " + b.y);
     }
 
+    const vw = (C.view && C.view.w) || 960;
+    const vh = (C.view && C.view.h) || 440;
+
+    const places = (C.places || [])
+      .map(
+        (p) =>
+          `<text class="map-label place-label place-${p.kind || "minor"}" x="${p.x}" y="${p.y}" text-anchor="${p.anchor || "middle"}">${p.text}</text>`
+      )
+      .join("");
+
     const cities = C.cities
       .map(
         (city) =>
-          `<g class="corridor-city" transform="translate(${city.x} ${city.y})">` +
-          `<circle r="1.8" fill="#f4ead3" stroke="#3f5c34" stroke-width="0.4"/>` +
-          `<text x="0" y="-3.2" text-anchor="middle" class="city-label">${city.name}</text>` +
+          `<g class="corridor-city">` +
+          `<circle cx="${city.x}" cy="${city.y}" r="4.2" fill="#fff" stroke="#222" stroke-width="1.1"/>` +
+          `<circle cx="${city.x}" cy="${city.y}" r="1.7" fill="#222"/>` +
+          `<text class="map-label city-label" x="${city.lx}" y="${city.ly}" text-anchor="${city.anchor || "middle"}">${city.name}</text>` +
           `</g>`
       )
       .join("");
@@ -456,104 +467,58 @@
         if (!owned && ui.tool === "farm" && ui.state.money >= cost) cls += " can-buy";
         if (!owned && ui.tool === "farm" && ui.state.money < cost) cls += " no-buy";
         const label = owned
-          ? farm.name + (mature ? " (regen)" : " (y" + prog.year + "/5)")
+          ? farm.name + (mature ? " (regen)" : " (year " + prog.year + " of 5)")
           : parcel.name + " — $" + cost;
-        const badgeText = owned ? (mature ? "regen" : prog.year + "/5") : ("$" + cost);
-        const x = parcel.x;
-        const y = parcel.y;
-        const field =
-          `<path class="parcel-field" d="M ${x} ${y - 2.5} L ${x + 3.1} ${y} L ${x} ${y + 2.1} L ${x - 3.1} ${y} Z"/>` +
-          (owned && !mature
-            ? `<path class="parcel-furrow" d="M ${x - 1.6} ${y - 0.2} L ${x + 1.5} ${y + 0.5} M ${x - 1.2} ${y + 0.55} L ${x + 1.7} ${y + 1.15}" />`
-            : "") +
-          (mature
-            ? `<circle class="parcel-clover" cx="${x - 0.7}" cy="${y - 0.2}" r="0.35"/><circle class="parcel-clover" cx="${x + 0.8}" cy="${y + 0.35}" r="0.28"/><circle class="parcel-manure" cx="${x + 0.15}" cy="${y + 0.7}" r="0.28"/><circle class="parcel-manure" cx="${x - 1.1}" cy="${y + 0.85}" r="0.22"/>`
-            : "") +
-          (hasVillage
-            ? `<g class="parcel-village">` +
-              `<circle class="village-halo" cx="${x + 2.4}" cy="${y + 1.6}" r="2.1"/>` +
-              `<path d="M ${x + 1.3} ${y + 2.2} L ${x + 2.2} ${y + 1.2} L ${x + 3.1} ${y + 2.2} Z"/>` +
-              `<rect x="${x + 1.7}" y="${y + 2.2}" width="1.1" height="0.9"/>` +
-              `</g>`
-            : "") +
-          (ui.grazing && owned
-            ? `<ellipse class="parcel-herd" cx="${x - 1.8}" cy="${y + 1.5}" rx="0.7" ry="0.38"/>`
-            : "");
+        const badgeText = owned ? (mature ? "5/5" : prog.year + "/5") : "$" + cost;
+        const shown = parcel.mapLabel || parcel.name;
+        const vx = parcel.x + (parcel.vdx || 16);
+        const vy = parcel.y + (parcel.vdy || -16);
+        const village = hasVillage
+          ? `<g class="village-pin" transform="translate(${vx} ${vy})" aria-hidden="true">` +
+            `<circle class="village-halo" r="8" fill="none" stroke="#c9e86a" stroke-width="0.8"/>` +
+            `<path d="M-7 2 L0 -6 L7 2 V8 H-7 Z" fill="#e7f6c4" stroke="#1d4a22" stroke-width="0.8"/>` +
+            `<path d="M-7 2 L0 -6 L7 2" fill="#3f8a3a"/>` +
+            `</g>`
+          : "";
         return (
           `<g class="${cls}" data-parcel="${parcel.id}" role="button" tabindex="0" aria-label="${label}">` +
           `<title>${label}</title>` +
-          `<circle class="parcel-hit" r="4.6" cx="${x}" cy="${y}" fill="transparent"/>` +
-          field +
-          `<rect class="parcel-deed" x="${x - 1.15}" y="${y - 1.15}" width="2.3" height="2.3" rx="0.35" transform="rotate(12 ${x} ${y})"/>` +
-          `<text class="parcel-name" x="${x}" y="${y - 3.4}" text-anchor="middle">${parcel.name}</text>` +
-          `<text class="parcel-badge" x="${x}" y="${y + 4.6}" text-anchor="middle">${badgeText}</text>` +
+          `<circle class="parcel-hit" r="14" cx="${parcel.x}" cy="${parcel.y}" fill="transparent"/>` +
+          `<rect class="parcel-deed" x="${parcel.x - 6.5}" y="${parcel.y - 6.5}" width="13" height="13" rx="1.3" transform="rotate(45 ${parcel.x} ${parcel.y})"/>` +
+          `<text class="parcel-badge" x="${parcel.x}" y="${parcel.y + 2}" text-anchor="middle">${badgeText}</text>` +
+          village +
+          `<text class="map-label parcel-name" x="${parcel.lx}" y="${parcel.ly}" text-anchor="${parcel.anchor || "middle"}">${shown}</text>` +
           `</g>`
         );
       })
       .join("");
 
     const decade = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
+    const villageBit = rail.villages
+      ? " · " + rail.villages + " village" + (rail.villages === 1 ? "" : "s")
+      : "";
     const meterLabel = rail.ready
-      ? "Green rail ready — Detroit to Jersey City · " + decade.short
-      : decade.short +
-        " · rail " +
-        rail.lit +
-        "/" +
-        rail.need +
-        " lit · " +
-        rail.matureCount +
-        " mature" +
-        (rail.villages ? " · " + rail.villages + " village station" + (rail.villages === 1 ? "" : "s") : "");
+      ? "Rail lit Detroit to Jersey City · " + decade.short
+      : decade.short + " · " + rail.lit + "/" + rail.need + " lit · " + rail.matureCount + " mature" + villageBit;
 
     return (
       `<div class="corridor-stage">` +
       `<div class="corridor-banner">` +
-      `<strong>Future green rail — Detroit to Jersey City</strong>` +
+      `<strong>Detroit → Jersey City</strong>` +
       `<span>${meterLabel}</span>` +
-      `<div class="rail-meter" role="progressbar" aria-valuenow="${rail.pct}" aria-valuemin="0" aria-valuemax="100">` +
+      `<div class="rail-meter" role="progressbar" aria-valuenow="${rail.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${meterLabel}">` +
       `<i style="width:${rail.pct}%"></i>` +
       `</div>` +
       `</div>` +
-      `<svg class="corridor-map" viewBox="0 14 100 44" preserveAspectRatio="xMidYMid slice" aria-label="Detroit to Jersey City corridor">` +
-      `<defs>` +
-      `<linearGradient id="landGrad" x1="0" y1="0" x2="1" y2="1">` +
-      `<stop offset="0%" stop-color="#8fad5c"/>` +
-      `<stop offset="35%" stop-color="#a8c46e"/>` +
-      `<stop offset="70%" stop-color="#7a9a52"/>` +
-      `<stop offset="100%" stop-color="#6b8a49"/>` +
-      `</linearGradient>` +
-      `<linearGradient id="lakeGrad" x1="0" y1="0" x2="0" y2="1">` +
-      `<stop offset="0%" stop-color="#6bb8c4"/>` +
-      `<stop offset="100%" stop-color="#3a7a88"/>` +
-      `</linearGradient>` +
-      `<filter id="soft"><feGaussianBlur stdDeviation="0.6"/></filter><filter id="railGlow"><feGaussianBlur stdDeviation="0.9"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
-      `</defs>` +
-      `<rect width="100" height="70" fill="url(#landGrad)"/>` +
-      /* Great Lakes stylized blobs */
-      `<ellipse cx="22" cy="8" rx="28" ry="10" fill="url(#lakeGrad)" opacity="0.85"/>` +
-      `<ellipse cx="48" cy="4" rx="18" ry="6" fill="url(#lakeGrad)" opacity="0.7"/>` +
-      `<ellipse cx="8" cy="48" rx="10" ry="14" fill="url(#lakeGrad)" opacity="0.55"/>` +
-      /* Appalachian / ridge texture */
-      `<path d="M52 58 Q62 48 72 52 T92 46" fill="none" stroke="#5a7040" stroke-width="3" opacity="0.35" filter="url(#soft)"/>` +
-      `<path d="M40 62 Q55 55 70 58 T95 50" fill="none" stroke="#4a6034" stroke-width="2" opacity="0.3"/>` +
-      /* Midwest fields hatch */
-      `<g opacity="0.18" stroke="#4a6030" stroke-width="0.25">` +
-      `<path d="M4 30 H34 M4 34 H32 M6 38 H30 M8 42 H28"/>` +
-      `<path d="M30 50 H55 M32 54 H58 M34 58 H60"/>` +
-      `</g>` +
-      /* Future dashed rail */
-      `<path class="rail-bed" d="${fullPath}" fill="none" stroke="#24381c" stroke-width="1.7" stroke-linecap="round" opacity="0.35"/>` +
-      `<path class="rail-future" d="${fullPath}" fill="none" stroke="#2f6a32" stroke-width="1.15" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>` +
-      /* Lit solid segments */
-      litPaths
-        .map((d) => `<path class="rail-lit" filter="url(#railGlow)" d="${d}" fill="none" stroke="#c9e86a" stroke-width="1.9" stroke-linecap="round"/>`)
-        .join("") +
-      litPaths
-        .map((d) => `<path class="rail-gleam" d="${d}" fill="none" stroke="#fff6c2" stroke-width="0.55" stroke-linecap="round"/>`)
-        .join("") +
+      `<svg class="corridor-map" viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor" xmlns:xlink="http://www.w3.org/1999/xlink">` +
+      `<rect width="${vw}" height="${vh}" fill="#6d8244"/>` +
+      `<image href="assets/corridor-basemap.svg" xlink:href="assets/corridor-basemap.svg" x="0" y="0" width="${vw}" height="${vh}" preserveAspectRatio="none"/>` +
+      `<path class="rail-case" d="${fullPath}" fill="none"/>` +
+      `<path class="rail-future" d="${fullPath}" fill="none"/>` +
+      litPaths.map((d) => `<path class="rail-lit" d="${d}" fill="none"/>`).join("") +
+      places +
       cities +
       parcels +
-      `<text x="50" y="56.2" text-anchor="middle" class="corridor-caption">${decade.short} · buy · convert five seasons · income buys the next deed · villages ride the mature farms</text>` +
       `</svg>` +
       `</div>`
     );
