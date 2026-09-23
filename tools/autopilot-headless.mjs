@@ -59,6 +59,10 @@ const years = sum.years || [];
 if (years.length < 10) errors.push("too few years " + years.length);
 if (years[0] !== 2) errors.push("first recorded year " + years[0]);
 if (years[years.length - 1] !== sum.season) errors.push("last year " + years[years.length - 1] + " != season " + sum.season);
+const per = 5;
+const expectedJobs = years.filter((y) => y > 1 && (y - 1) % per === 0).length;
+if (sum.greatJobs !== expectedJobs) errors.push("greatJobs " + sum.greatJobs + " != " + expectedJobs);
+if ((sum.greatJobs || 0) < 3) errors.push("expected a Great Job card after each closed decade, got " + sum.greatJobs);
 for (let i = 1; i < years.length; i++) {
   if (years[i] !== years[i - 1] + 1) errors.push("year skip " + years[i - 1] + " -> " + years[i]);
 }

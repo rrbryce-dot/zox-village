@@ -67,6 +67,7 @@
     season: 400,
     yearClose: 2400,
     yearOpen: 3800,
+    greatJob: 6500,
     compost: 250,
   };
 
@@ -78,11 +79,15 @@
   }
 
   /* Wall-clock the live UI spends on one committed decision. Headless does not sleep. */
-  function watchMs(d) {
+  function watchMs(d, state) {
     if (!d || d.kind === "done") return 0;
     if (d.kind === "announce") return PACE.announce;
     if ((d.kind === "buy" || d.kind === "row") && d.affordable) return PACE.card + PACE.stage + PACE.buy;
-    if (decisionTurnsYear(d)) return PACE.yearClose + PACE.yearOpen;
+    if (decisionTurnsYear(d)) {
+      let ms = PACE.yearClose + PACE.yearOpen;
+      if (state && Zox.Sim && Zox.Sim.decadeInfo(state.season, state).closing) ms += PACE.greatJob;
+      return ms;
+    }
     if (d.kind === "village") return PACE.village;
     if (d.kind === "sell") return PACE.sell;
     if (d.kind === "rail") return PACE.rail;
@@ -351,6 +356,7 @@
         commits: 0,
         years: [],
         watchMs: 0,
+        greatJobs: 0,
       },
     };
 
@@ -769,7 +775,10 @@
       const before = state.season;
       const res = Zox.Sim.runSeason(state);
       if (state.status !== "playing") state.status = "playing";
-      if (state.season === before + 1) mem.stats.years.push(state.season);
+      if (state.season === before + 1) {
+        mem.stats.years.push(state.season);
+        if (Zox.Sim.decadeInfo(before, state).closing) mem.stats.greatJobs += 1;
+      }
       return res;
     }
 
@@ -803,7 +812,7 @@
     function commit() {
       const d = peek();
       mem.stats.commits += 1;
-      mem.stats.watchMs += watchMs(d);
+      mem.stats.watchMs += watchMs(d, state);
       if (d.kind === "announce") {
         mem.announced[d.phase] = true;
         mem.pendingAnnounce = null;
@@ -926,6 +935,7 @@
         status: state.status,
         commits: mem.stats.commits,
         years: mem.stats.years.slice(),
+        greatJobs: mem.stats.greatJobs,
         estimatedWatchMs: mem.stats.watchMs,
         estimatedWatchSec: Math.round(mem.stats.watchMs / 1000),
         builtRail: state.builtRail,
