@@ -93,77 +93,216 @@
     };
   }
 
-  function scaleLedger(base, scale) {
-    const out = {};
-    const keys = Object.keys(base || {});
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      const v = base[k];
-      if (k === "nutritionMult") {
-        out[k] = v;
-      } else if (typeof v === "number") {
-        out[k] = Math.round(v * scale * 10) / 10;
-      } else {
-        out[k] = v;
-      }
-    }
-    return out;
+  function roundTenth(n) {
+    return Math.round(n * 10) / 10;
   }
 
-  function farmLedgerFor(modelId, year) {
-    const models = Zox.FARM_MODELS;
-    if (modelId === "traditional") {
-      return Object.assign({}, models.traditional.ledger);
+  function cashSum(ledger) {
+    const keys = Zox.LEDGER_CASH || [];
+    let sum = 0;
+    for (let i = 0; i < keys.length; i++) sum += Number(ledger[keys[i]]) || 0;
+    return roundTenth(sum);
+  }
+
+  function scaleCashTo(baseLedger, target) {
+    const keys = Zox.LEDGER_CASH || [];
+    const led = Object.assign({}, baseLedger);
+    const base = cashSum(baseLedger) || 1;
+    let acc = 0;
+    for (let i = 0; i < keys.length; i++) {
+      const v = roundTenth((Number(baseLedger[keys[i]]) || 0) * (target / base));
+      led[keys[i]] = v;
+      acc = roundTenth(acc + v);
     }
-    if (modelId === "regenerative") {
-      return Object.assign({}, models.regenerative.ledger);
-    }
-    const years = models.converting.years;
-    const row = years[(year || 3) - 1] || years[2];
-    const scale = row.ledgerScale != null ? row.ledgerScale : 0.35;
-    const led = scaleLedger(models.converting.ledger, scale / 0.35);
-    led.nutritionMult = 2;
+    const drift = roundTenth(target - acc);
+    led.fertilizer = roundTenth((Number(led.fertilizer) || 0) + drift);
     return led;
   }
 
-  function farmBooks(farm) {
+  function lerpIndex(a, b, t) {
+    return roundTenth(a + (b - a) * t);
+  }
+
+  /**
+   * Converting ledger for display years 1–5.
+   * Cash lines are the traditional bill scaled so they sum to that year's inputs.
+   * Soil, water, and labor indexes walk from traditional toward regenerative.
+   * Seasons 1–4 pay this book. The click that finishes year 5 pays regenerative.
+   */
+  function convertingLedger(year) {
     const models = Zox.FARM_MODELS;
-    if (!farm) return null;
-    if (farmMature(farm)) {
-      const row = models.regenerative;
-      return {
-        model: "regenerative",
-        label: "Zox regenerative",
-        year: models.converting.years.length,
-        need: models.converting.years.length,
-        mature: true,
-        gross: row.gross,
-        inputs: row.inputs,
-        net: row.gross - row.inputs,
-        note: row.note,
-        ledger: farmLedgerFor("regenerative"),
-      };
+    const trad = models.traditional.ledger;
+    const regen = models.regenerative.ledger;
+    const years = models.converting.years;
+    const row = years[(year || 1) - 1] || years[0];
+    const tSteps = [0.18, 0.36, 0.54, 0.72, 0.88];
+    const t = tSteps[(row.year || 1) - 1] || 0.5;
+    const led = scaleCashTo(trad, row.inputs);
+    const indexes = [
+      "manureReturn",
+      "soilOrganicMatter",
+      "waterUse",
+      "runoff",
+      "erosion",
+      "biodiversity",
+      "laborChem",
+      "laborLiving",
+    ];
+    for (let i = 0; i < indexes.length; i++) {
+      const k = indexes[i];
+      led[k] = lerpIndex(trad[k], regen[k], t);
     }
-    const prog = farmProgress(farm);
-    const row = models.converting.years[prog.year - 1] || models.converting.years[0];
-    return {
-      model: "converting",
-      label: "Converting (year " + prog.year + " of " + prog.need + ")",
-      year: prog.year,
-      need: prog.need,
+    const carbPreview = [2, 3, 5, 7, 8];
+    const nutrPreview = (Zox.NUTRITION.convertingLadder || [2, 3, 4, 5]).concat([
+      Zox.NUTRITION.yearFivePreview || 5,
+    ]);
+    led.carbonTons = carbPreview[(row.year || 1) - 1] || 3;
+    led.nutritionMult = nutrPreview[(row.year || 1) - 1] || 2;
+    return led;
+  }
+
+  function regenLedger() {
+    return Object.assign({}, Zox.FARM_MODELS.regenerative.ledger);
+  }
+
+  function tradLedger() {
+    return Object.assign({}, Zox.FARM_MODELS.traditional.ledger);
+  }
+
+  function farmLedgerFor(modelId, year) {
+    if (modelId === "traditional") return tradLedger();
+    if (modelId === "regenerative") return regenLedger();
+    return convertingLedger(year || 3);
+  }
+
+  function booksFrom(model, ledger, extra) {
+    const inputs = cashSum(ledger);
+    const gross = model.gross;
+    return Object.assign(
+      {
+        model: model.id,
+        label: model.name,
+        gross: gross,
+        inputs: inputs,
+        net: roundTenth(gross - inputs),
+        note: model.note,
+        ledger: ledger,
+      },
+      extra || {}
+    );
+  }
+
+  function convertingBooks(year) {
+    const models = Zox.FARM_MODELS;
+    const row = models.converting.years[(year || 1) - 1] || models.converting.years[0];
+    const ledger = convertingLedger(row.year);
+    return booksFrom(
+      {
+        id: "converting",
+        name: "Converting (year " + row.year + " of 5)",
+        gross: row.gross,
+        note: models.converting.note,
+      },
+      ledger,
+      {
+        year: row.year,
+        need: models.converting.years.length,
+        mature: false,
+        label: "Converting (year " + row.year + " of 5)",
+      }
+    );
+  }
+
+  function regenerativeBooks() {
+    const row = Zox.FARM_MODELS.regenerative;
+    const need = Zox.FARM_MODELS.converting.years.length;
+    return booksFrom(row, regenLedger(), {
+      year: need,
+      need: need,
+      mature: true,
+      label: "Zox regenerative",
+    });
+  }
+
+  function traditionalBooks() {
+    const row = Zox.FARM_MODELS.traditional;
+    return booksFrom(row, tradLedger(), {
+      year: 0,
+      need: 5,
       mature: false,
-      gross: row.gross,
-      inputs: row.inputs,
-      net: row.gross - row.inputs,
-      note: models.converting.note,
-      ledger: farmLedgerFor("converting", prog.year),
+      label: row.name,
+    });
+  }
+
+  function farmBooks(farm) {
+    if (!farm) return null;
+    if (farmMature(farm)) return regenerativeBooks();
+    const prog = farmProgress(farm);
+    return convertingBooks(prog.year);
+  }
+
+  /**
+   * Books the Next Season click actually pays.
+   * Years 1–4 pay the converting book. The click that finishes year 5
+   * graduates: chem $0, 6× nutrition, mature carbon, and the rail can light.
+   */
+  function seasonResolution(farm) {
+    const need = Zox.BUILDINGS.farm.convertYears;
+    const age = farm.regenAge || 0;
+    if (age >= need) {
+      return { phase: "regenerative", year: need, mature: true, books: regenerativeBooks() };
+    }
+    if (age === need - 1) {
+      const books = regenerativeBooks();
+      books.label = "Graduated to regenerative";
+      return { phase: "graduate", year: need, mature: true, books: books };
+    }
+    const year = age + 1;
+    return { phase: "converting", year: year, mature: false, books: convertingBooks(year) };
+  }
+
+  function carbonUnitsFor(res) {
+    if (res.mature) return Zox.CARBON.matureFarm;
+    const ladder = Zox.CARBON.convertingLadder || [2, 3, 5, 7];
+    return ladder[res.year - 1] || Zox.CARBON.convertingFarm;
+  }
+
+  function nutritionFor(res) {
+    if (res.mature) return Zox.NUTRITION.regenerative;
+    const ladder = Zox.NUTRITION.convertingLadder || [2, 3, 4, 5];
+    return ladder[res.year - 1] || Zox.NUTRITION.converting;
+  }
+
+  function resolveFarmSeason(farm) {
+    const res = seasonResolution(farm);
+    const def = Zox.BUILDINGS.farm;
+    const books = res.books;
+    const snap = {
+      phase: res.phase,
+      year: res.year,
+      mature: res.mature,
+      gross: books.gross,
+      inputs: books.inputs,
+      net: books.net,
+      nutritionMult: nutritionFor(res),
+      carbonUnits: carbonUnitsFor(res),
+      nature: res.mature ? def.nature : def.youngNature,
+      waste: res.mature ? def.waste : def.youngWaste,
+      credits: res.mature ? def.credits : def.youngCredits,
+      ledger: books.ledger,
+      label: books.label,
     };
+    const wasMature = farmMature(farm);
+    farm.regenAge = (farm.regenAge || 0) + 1;
+    farm.lastSnap = snap;
+    snap.justMatured = !wasMature && farmMature(farm);
+    return snap;
   }
 
   function farmYield(farm) {
-    const def = Zox.BUILDINGS.farm;
     const books = farmBooks(farm);
     const mature = !!(books && books.mature);
+    const def = Zox.BUILDINGS.farm;
     return {
       mature,
       income: books ? books.gross : 0,
@@ -175,38 +314,108 @@
     };
   }
 
-  function farmModelRows() {
-    const models = Zox.FARM_MODELS;
-    const mid = models.converting.years[2];
+  function farmModelRows(focusYear) {
+    const year = focusYear || 3;
+    const conv = convertingBooks(year);
+    const trad = traditionalBooks();
+    const regen = regenerativeBooks();
     return [
       {
         id: "traditional",
-        name: models.traditional.name,
-        gross: models.traditional.gross,
-        inputs: models.traditional.inputs,
-        net: models.traditional.gross - models.traditional.inputs,
-        note: models.traditional.note,
-        ledger: farmLedgerFor("traditional"),
+        name: trad.label,
+        gross: trad.gross,
+        inputs: trad.inputs,
+        net: trad.net,
+        note: trad.note,
+        ledger: trad.ledger,
+        mature: false,
       },
       {
         id: "converting",
-        name: "Converting (year " + mid.year + " of 5)",
-        gross: mid.gross,
-        inputs: mid.inputs,
-        net: mid.gross - mid.inputs,
-        note: models.converting.note,
-        ledger: farmLedgerFor("converting", mid.year),
+        name: conv.label,
+        gross: conv.gross,
+        inputs: conv.inputs,
+        net: conv.net,
+        note: conv.note,
+        ledger: conv.ledger,
+        year: conv.year,
+        mature: false,
       },
       {
         id: "regenerative",
-        name: models.regenerative.name,
-        gross: models.regenerative.gross,
-        inputs: models.regenerative.inputs,
-        net: models.regenerative.gross - models.regenerative.inputs,
-        note: models.regenerative.note,
-        ledger: farmLedgerFor("regenerative"),
+        name: regen.label,
+        gross: regen.gross,
+        inputs: regen.inputs,
+        net: regen.net,
+        note: regen.note,
+        ledger: regen.ledger,
+        mature: true,
       },
     ];
+  }
+
+  function acresPerDeed() {
+    const cost = Zox.BUILDINGS.farm.cost;
+    const rows = farmModelRows(3);
+    return {
+      cost: cost,
+      tradNet: rows[0].net,
+      regenNet: rows[2].net,
+      tradAcres: Math.ceil(cost / rows[0].net),
+      regenAcres: Math.ceil(cost / rows[2].net),
+    };
+  }
+
+  function nextDeed(state) {
+    const cost = Zox.BUILDINGS.farm.cost;
+    const open = Math.max(0, Zox.CORRIDOR.parcels.length - (state.farms ? state.farms.length : 0));
+    const money = state.money || 0;
+    const afford = Math.floor(money / cost);
+    const pace = state.lastIncome && state.lastIncome.net > 0 ? state.lastIncome.net : Zox.LIC.income;
+    if (open <= 0) {
+      return {
+        open: 0,
+        afford: 0,
+        cost: cost,
+        need: 0,
+        text: "Every deed on the corridor is yours. Mature them, add villages, and light the rest of the rail.",
+      };
+    }
+    if (afford >= 1) {
+      const n = Math.min(afford, open);
+      return {
+        open: open,
+        afford: n,
+        cost: cost,
+        need: 0,
+        text:
+          "Jar $" +
+          money +
+          " buys " +
+          n +
+          " more deed" +
+          (n === 1 ? "" : "s") +
+          " at $" +
+          cost +
+          ". Regen net buys the next farm sooner than the chem model.",
+      };
+    }
+    const need = cost - money;
+    const seasons = pace > 0 ? Math.max(1, Math.ceil(need / pace)) : null;
+    return {
+      open: open,
+      afford: 0,
+      cost: cost,
+      need: need,
+      seasons: seasons,
+      text:
+        "Need $" +
+        need +
+        " more for the next deed ($" +
+        cost +
+        ")." +
+        (seasons ? " About " + seasons + " season" + (seasons === 1 ? "" : "s") + " of income." : ""),
+    };
   }
 
   function decadeInfo(season) {
@@ -215,7 +424,8 @@
     const s = Math.max(1, season || 1);
     const decade = Math.min(decades, Math.ceil(s / per));
     const seasonInDecade = ((s - 1) % per) + 1;
-    const year = s; /* each season is one year on the long-horizon board */
+    const year = s;
+    const closing = seasonInDecade === per;
     return {
       decade: decade,
       decades: decades,
@@ -223,9 +433,13 @@
       seasonsPerDecade: per,
       year: year,
       yearsTotal: Zox.GOAL.seasons,
+      closing: closing,
+      short: "Decade " + decade + " of " + decades + " · Year " + seasonInDecade + " of " + per,
       label:
         "Decade " +
         decade +
+        " of " +
+        decades +
         " · Year " +
         seasonInDecade +
         " of " +
@@ -241,22 +455,101 @@
     return buildingsOf(state, "village").length;
   }
 
+  function averageSnaps(state) {
+    const farms = state.farms || [];
+    const snaps = [];
+    for (let i = 0; i < farms.length; i++) {
+      if (farms[i].lastSnap) snaps.push(farms[i].lastSnap);
+    }
+    if (!snaps.length) return null;
+    const led = {};
+    const spec = Zox.LEDGER_SPEC || [];
+    for (let g = 0; g < spec.length; g++) {
+      const rows = spec[g].rows;
+      for (let r = 0; r < rows.length; r++) led[rows[r].key] = 0;
+    }
+    let gross = 0;
+    let inputs = 0;
+    let net = 0;
+    let nutr = 0;
+    let carbon = 0;
+    let mature = 0;
+    for (let i = 0; i < snaps.length; i++) {
+      const s = snaps[i];
+      gross += s.gross;
+      inputs += s.inputs;
+      net += s.net;
+      nutr += s.nutritionMult;
+      carbon += s.carbonUnits;
+      if (s.mature) mature += 1;
+      const keys = Object.keys(led);
+      for (let k = 0; k < keys.length; k++) {
+        led[keys[k]] += Number(s.ledger && s.ledger[keys[k]]) || 0;
+      }
+    }
+    const n = snaps.length;
+    const keys = Object.keys(led);
+    for (let k = 0; k < keys.length; k++) led[keys[k]] = roundTenth(led[keys[k]] / n);
+    led.nutritionMult = Math.round((nutr / n) * 10) / 10;
+    return {
+      acres: n,
+      mature: mature,
+      gross: roundTenth(gross / n),
+      inputs: roundTenth(inputs / n),
+      net: roundTenth(net / n),
+      nutritionMult: led.nutritionMult,
+      carbonEach: roundTenth(carbon / n),
+      carbon: carbon,
+      ledger: led,
+      snaps: snaps,
+    };
+  }
+
+  function decadeSlice(history, decade) {
+    const per = Zox.GOAL.seasonsPerDecade || 5;
+    const start = (decade - 1) * per + 1;
+    const end = decade * per;
+    let carbon = 0;
+    let nutrition = 0;
+    let net = 0;
+    let seasons = 0;
+    const rows = history || [];
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].season >= start && rows[i].season <= end) {
+        carbon += rows[i].carbon || 0;
+        nutrition += rows[i].nutrition || 0;
+        net += rows[i].net || 0;
+        seasons += 1;
+      }
+    }
+    return { decade: decade, carbon: carbon, nutrition: nutrition, net: net, seasons: seasons };
+  }
+
   function seasonReportCard(state) {
-    const rows = farmModelRows();
+    const finished = Math.max(1, (state.season || 1) - 1);
+    const decade = decadeInfo(finished);
+    const rows = farmModelRows(3);
     const trad = rows[0];
     const regen = rows[2];
     const rail = railProgress(state);
     const villages = countVillages(state);
-    let acres = state.farms ? state.farms.length : 0;
+    const acres = state.farms ? state.farms.length : 0;
     let matureAcres = 0;
+    let graduated = 0;
     for (let i = 0; i < (state.farms || []).length; i++) {
       if (farmMature(state.farms[i])) matureAcres += 1;
+      if (state.farms[i].lastSnap && state.farms[i].lastSnap.phase === "graduate") graduated += 1;
     }
     const inc = state.lastIncome || {};
     const wins = state.lastSeasonWins || {};
-    const decade = decadeInfo(Math.max(1, (state.season || 1) - 1));
+    const yours = averageSnaps(state);
+    const deed = acresPerDeed();
+    const jar = nextDeed(state);
+    const decadeTotals = decadeSlice(state.history, decade.decade);
     return {
       decade: decade,
+      decadeClose: !!decade.closing,
+      decadeTotals: decadeTotals,
       inputsSpent: inc.inputs || 0,
       carbon: wins.earth || state.carbonSeason || 0,
       carbonTotal: state.carbonTotal || 0,
@@ -265,16 +558,25 @@
       netPerAcreRegen: regen.net,
       acres: acres,
       matureAcres: matureAcres,
+      graduated: graduated,
       villages: villages,
       railPct: rail.pct,
       railLit: rail.lit,
       railNeed: rail.need,
+      villageBoost: rail.villageBoost || 0,
+      villagePct: rail.villagePct || 0,
       money: state.money,
       health: state.health,
       incomeNet: inc.net || 0,
       graze: inc.graze || 0,
       ledgerTrad: trad.ledger,
       ledgerRegen: regen.ledger,
+      ledgerYours: yours ? yours.ledger : null,
+      yours: yours,
+      deed: deed,
+      jar: jar,
+      trad: trad,
+      regen: regen,
     };
   }
 
@@ -312,14 +614,17 @@
     const villages = buildingsOf(state, "village");
     const vBoost = villages.length * ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.railBoost) || 0);
     const rawPct = Math.round((lit / need) * 100);
-    const pct = Math.min(100, rawPct + vBoost * 4);
+    const villagePct = Math.min(24, vBoost * 8);
+    const pct = Math.min(100, rawPct + villagePct);
     return {
       parcels,
       segments,
       lit,
       need,
       pct: pct,
+      rawPct: rawPct,
       villageBoost: vBoost,
+      villagePct: villagePct,
       villages: villages.length,
       matureCount,
       ownedCount,
@@ -352,10 +657,11 @@
       endReason: "",
       score: 0,
       wonOnSeason: null,
+      history: [],
       log: [
         {
           season: 1,
-          text: "LIC capital buys the next field along the corridor. Walk the farm. Mature farms light the Detroit–Jersey City rail.",
+          text: "Opening capital covers the first deeds. Five seasons convert a farm. After that, net income buys the line east — four decades toward the rail.",
         },
       ],
     };
@@ -595,11 +901,17 @@
    * Extra nutrition above traditional baseline (=1) delivered this season.
    * Mature regen portions count at 6×, converting at 2× → additional = portions × (q − 1).
    */
+  function nutritionMultOf(farm) {
+    if (farm.lastSnap && farm.lastSnap.nutritionMult) return farm.lastSnap.nutritionMult;
+    const books = farmBooks(farm);
+    return books && books.ledger ? books.ledger.nutritionMult : Zox.NUTRITION.converting;
+  }
+
   function nutritionExtraSeason(state, parks) {
     const N = Zox.NUTRITION;
     let extra = 0;
     for (let i = 0; i < state.farms.length; i++) {
-      const q = farmMature(state.farms[i]) ? N.regenerative : N.converting;
+      const q = nutritionMultOf(state.farms[i]);
       extra += N.farmPortions * Math.max(0, q - N.traditional);
     }
     if (parks && parks.length) {
@@ -612,7 +924,9 @@
     const C = Zox.CARBON;
     let units = 0;
     for (let i = 0; i < state.farms.length; i++) {
-      units += farmMature(state.farms[i]) ? C.matureFarm : C.convertingFarm;
+      const snap = state.farms[i].lastSnap;
+      if (snap && snap.carbonUnits != null) units += snap.carbonUnits;
+      else units += farmMature(state.farms[i]) ? C.matureFarm : C.convertingFarm;
     }
     units += parks.length * C.park;
     units += Math.min(C.groveCap, groves.length * C.grove);
@@ -630,7 +944,7 @@
     let weighted = 0;
     let portions = 0;
     for (let i = 0; i < state.farms.length; i++) {
-      const q = farmMature(state.farms[i]) ? N.regenerative : N.converting;
+      const q = nutritionMultOf(state.farms[i]);
       weighted += q * N.farmPortions;
       portions += N.farmPortions;
     }
@@ -679,8 +993,17 @@
     const flags = evaluateGoals(state);
     if (goalsMet(flags)) {
       state.status = "won";
-      state.wonOnSeason = state.season;
-      state.endReason = Zox.COPY.win;
+      state.wonOnSeason = Math.max(1, state.season - 1);
+      const wonDecade = decadeInfo(state.wonOnSeason);
+      state.endReason =
+        Zox.COPY.win +
+        " That happened in " +
+        wonDecade.short +
+        " (year " +
+        wonDecade.year +
+        " of " +
+        wonDecade.yearsTotal +
+        ").";
       state.score = computeScore(state);
       pushLog(state, "Carbon locked in the soil this season. People are healthier on 6× regen food. This is a village.");
       return;
@@ -724,16 +1047,20 @@
     const groves = standingGroves(state);
 
     const justMatured = [];
+    const seasonSnaps = [];
     for (let i = 0; i < state.farms.length; i++) {
-      const farm = state.farms[i];
-      const was = farmMature(farm);
-      farm.regenAge = (farm.regenAge || 0) + 1;
-      if (!was && farmMature(farm)) justMatured.push(farm);
+      const snap = resolveFarmSeason(state.farms[i]);
+      seasonSnaps.push(snap);
+      if (snap.justMatured) justMatured.push(state.farms[i]);
     }
 
     let railLive = false;
+    const villageLots = buildingsOf(state, "village");
+    const vDef = Zox.BUILDINGS.village;
     const energySupply = yards.length * Zox.BUILDINGS.solar.energy;
-    const energyDemand = homes.length * Zox.BUILDINGS.home.energyUse;
+    const energyDemand =
+      homes.length * Zox.BUILDINGS.home.energyUse +
+      villageLots.length * ((vDef && vDef.energyUse) || 0);
     let energyLeft = energySupply;
     let poweredHomes = 0;
     homes.forEach(() => {
@@ -742,8 +1069,18 @@
         energyLeft -= Zox.BUILDINGS.home.energyUse;
       }
     });
-    const unpowered = homes.length - poweredHomes;
-    const people = homes.length * Zox.BUILDINGS.home.pop;
+    let poweredVillages = 0;
+    villageLots.forEach(() => {
+      const need = (vDef && vDef.energyUse) || 0;
+      if (energyLeft >= need) {
+        poweredVillages += 1;
+        energyLeft -= need;
+      }
+    });
+    const unpowered = homes.length - poweredHomes + (villageLots.length - poweredVillages);
+    const people =
+      homes.length * Zox.BUILDINGS.home.pop +
+      villageLots.length * ((vDef && vDef.pop) || 0);
 
     const streams = emptyIncome();
     let wasteIn = 0;
@@ -753,13 +1090,13 @@
 
     for (let i = 0; i < state.farms.length; i++) {
       const farm = state.farms[i];
-      const y = farmYield(farm);
+      const y = farm.lastSnap || seasonSnaps[i];
       const connected = Zox.Map.connectedSet(farm.tiles);
       const farmRail = Zox.Map.railNetworks(farm.tiles).some((n) => n.length >= 2);
       if (farmRail) railLive = true;
       const hasCompost = Zox.Map.tilesOf(farm.tiles, "compost").length > 0;
       const irrigated = Zox.Map.countTerrain(farm.tiles, "water") > 0;
-      let pay = y.income;
+      let pay = y.gross;
       if (irrigated) pay += 3;
       if (hasCompost) {
         pay += 2;
@@ -793,10 +1130,10 @@
       else happyDelta -= 4;
     });
 
-    // End-of-season crop rent: animals graze, manure stays — revenue
+    // End-of-season crop rent: animals graze residue, manure stays — revenue
     for (let i = 0; i < state.farms.length; i++) {
-      const farm = state.farms[i];
-      const rent = farmMature(farm) ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting;
+      const snap = state.farms[i].lastSnap;
+      const rent = snap && snap.mature ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting;
       streams.graze += rent;
     }
 
@@ -805,7 +1142,10 @@
     for (let i = 0; i < yards.length; i++) streams.upkeep += Zox.BUILDINGS.solar.upkeep;
     for (let i = 0; i < hubs.length; i++) streams.upkeep += Zox.BUILDINGS.compost.upkeep;
     for (let i = 0; i < rails.length; i++) streams.upkeep += Zox.BUILDINGS.rail.upkeep;
-    for (let i = 0; i < buildingsOf(state, "village").length; i++) streams.upkeep += Zox.BUILDINGS.village.upkeep;
+    for (let i = 0; i < villageLots.length; i++) {
+      streams.upkeep += Zox.BUILDINGS.village.upkeep;
+      wasteIn += (vDef && vDef.waste) || 0;
+    }
 
     natureDelta += parks.length * Zox.BUILDINGS.park.nature;
     happyDelta += parks.length * Zox.BUILDINGS.park.happy;
@@ -890,6 +1230,18 @@
       state.lastSeasonWins.population = state.nutritionExtra || state.lastSeasonWins.population;
       state.lastSeasonWins.villages = buildingsOf(state, "village").length;
     }
+    const finishedSeason = state.season;
+    state.history = state.history || [];
+    state.history.push({
+      season: finishedSeason,
+      carbon: state.carbonSeason || 0,
+      nutrition: state.nutritionExtra || 0,
+      net: streams.net || 0,
+      inputs: streams.inputs || 0,
+      acres: state.farms.length,
+      villages: buildingsOf(state, "village").length,
+      health: state.health,
+    });
     state.season += 1;
     state.lastReport = seasonReportCard(state);
 
@@ -908,8 +1260,8 @@
     if (justMatured.length) {
       flavor.push(
         justMatured.length > 1
-          ? "Farms dropped the chem bill. Graze and manure now — and the corridor rail lights farther east."
-          : justMatured[0].name + " dropped the chem bill. Mature farms light the green rail."
+          ? "Graduation season. Those farms dropped the chem bill — manure stays, nutrition is 6×, and the rail can light."
+          : justMatured[0].name + " graduated. Chem bill $0, graze and manure stay, and this acre can light the rail."
       );
     }
     if (corridorRail.ready && !flavor.length) {
@@ -944,6 +1296,20 @@
     }
     if (state.nature >= 70 && state.waste <= 22 && !flavor.length) flavor.push("Creek's running clearer this week.");
     if (!flavor.length) flavor.push("Another season. Crops pay for the next field along the line. Carbon " + sequestered + " sequestered.");
+    const closed = decadeInfo(finishedSeason);
+    if (closed.closing) {
+      const tally = decadeSlice(state.history, closed.decade);
+      pushLog(
+        state,
+        "Decade " +
+          closed.decade +
+          " of " +
+          closed.decades +
+          " closes. This decade locked " +
+          tally.carbon +
+          " carbon. The rail to Jersey City is still a long build."
+      );
+    }
     pushLog(state, flavor[0]);
 
     maybeEnd(state);
@@ -1002,6 +1368,11 @@
     farmBooks,
     farmModelRows,
     farmLedgerFor,
+    cashSum,
+    acresPerDeed,
+    nextDeed,
+    seasonResolution,
+    resolveFarmSeason,
     decadeInfo,
     seasonReportCard,
     countVillages,

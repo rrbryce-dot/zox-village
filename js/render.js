@@ -34,6 +34,7 @@
       if (ui.selected && ui.selected.parcelId) key += "S" + ui.selected.parcelId;
       if (ui.hover && ui.hover.parcelId) key += "H" + ui.hover.parcelId;
       if (ui.grazing) key += "G1";
+      key += "V" + Zox.Sim.countVillages(ui.state);
       key += "T" + (ui.tool || "");
       return key;
     }
@@ -64,10 +65,16 @@
       parts.push("is-field");
       const farm = Zox.Sim.getFarm(ui.state, ui.farmId);
       if (farm) {
-        if (Zox.Sim.farmMature(farm)) parts.push("is-regen-field");
-        else parts.push("is-converting-field");
-        const age = farm.regenAge || 0;
-        if (age <= 1) parts.push("is-young-convert");
+        if (Zox.Sim.farmMature(farm)) {
+          parts.push("is-regen-field");
+          parts.push("show-manure");
+        } else {
+          parts.push("is-converting-field");
+          const age = farm.regenAge || 0;
+          if (age <= 1) parts.push("is-young-convert");
+          else if (age >= 4) parts.push("is-almost-regen");
+          if (age >= 2) parts.push("show-manure");
+        }
       }
     }
     if (tile.building === "village") parts.push("has-village");
@@ -303,11 +310,13 @@
 
     // Animals graze field tiles on the farm board (crop rent / manure cycle)
     let graze = "";
+    const herdSlot = seed % 4 === 0 || (ui.grazing && seed % 2 === 0);
     const showGraze =
       farmView &&
+      herdSlot &&
       !tile.building &&
       tile.landmark !== "barn" &&
-      (tile.terrain === "meadow" || tile.terrain === "grove") &&
+      tile.terrain === "meadow" &&
       ui.state &&
       ui.state.farms &&
       ui.state.farms.length > 0;
@@ -325,6 +334,7 @@
       `<span class="iso-right"></span>` +
       `<span class="iso-cap">${capDecor(tile, farmView)}</span>` +
       volume +
+      (tile.building === "village" ? `<span class="village-halo" aria-hidden="true"></span>` : "") +
       graze +
       regenMeter(tile, ui) +
       `</span>` +
@@ -356,10 +366,31 @@
     order.sort((a, b) => a.r + a.c - (b.r + b.c) || a.r - b.r);
     for (const tile of order) cells.push(tileHTML(tiles, tile, ui, tw, th, head));
 
-    const banner =
-      ui.grazing
-        ? `<div class="graze-banner" aria-live="polite"><b>Animals grazing</b> — crop rent · manure on the land</div>`
-        : `<div class="graze-banner is-idle"><b>Grazing herd on this farm</b> — Next Season = rent the crop to the animals</div>`;
+    const farm = Zox.Sim.getFarm(ui.state, ui.farmId);
+    let bannerText = "Grazing herd on this farm — Next Season rents the crop to the animals";
+    if (farm) {
+      const books = Zox.Sim.farmBooks(farm);
+      const prog = Zox.Sim.farmProgress(farm);
+      if (prog.mature) {
+        bannerText = "Mature regen · chem $0 · graze the residue · manure stays · nutrition 6×";
+      } else if (prog.year >= 5) {
+        bannerText =
+          "Year 5 of 5 · chem −$" +
+          books.inputs +
+          " · next season graduates to $0 chem, 6× nutrition, and can light the rail";
+      } else {
+        bannerText =
+          "Converting year " +
+          prog.year +
+          " of 5 · chem −$" +
+          books.inputs +
+          " · net $" +
+          books.net +
+          "/acre · manure is starting to stay";
+      }
+    }
+    if (ui.grazing) bannerText = "Animals grazing the residue · manure stays · " + bannerText;
+    const banner = `<div class="graze-banner${ui.grazing ? "" : " is-idle"}" aria-live="polite"><b>${bannerText}</b></div>`;
 
     return (
       `<div class="farm-wrap">` +
@@ -444,6 +475,7 @@
         const vy = parcel.y + (parcel.vdy || -16);
         const village = hasVillage
           ? `<g class="village-pin" transform="translate(${vx} ${vy})" aria-hidden="true">` +
+            `<circle class="village-halo" r="8" fill="none" stroke="#c9e86a" stroke-width="0.8"/>` +
             `<path d="M-7 2 L0 -6 L7 2 V8 H-7 Z" fill="#e7f6c4" stroke="#1d4a22" stroke-width="0.8"/>` +
             `<path d="M-7 2 L0 -6 L7 2" fill="#3f8a3a"/>` +
             `</g>`
@@ -461,9 +493,13 @@
       })
       .join("");
 
+    const decade = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
+    const villageBit = rail.villages
+      ? " · " + rail.villages + " village" + (rail.villages === 1 ? "" : "s")
+      : "";
     const meterLabel = rail.ready
-      ? "Rail lit Detroit to Jersey City"
-      : rail.lit + "/" + rail.need + " segments lit · " + rail.matureCount + " mature";
+      ? "Rail lit Detroit to Jersey City · " + decade.short
+      : decade.short + " · " + rail.lit + "/" + rail.need + " lit · " + rail.matureCount + " mature" + villageBit;
 
     return (
       `<div class="corridor-stage">` +
