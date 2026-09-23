@@ -4,6 +4,10 @@
 (function (global) {
   const Zox = (global.Zox = global.Zox || {});
 
+  function money(n) {
+    return Zox.dollars ? Zox.dollars(n) : "$" + n;
+  }
+
   const ICONS = {
     inspect: "◉",
     home: "⌂",
@@ -187,10 +191,10 @@
       const cost = Zox.BUILDINGS.farm.cost;
       const left = openParcelsLeft();
       flash(
-        "Jar has $" +
-          ui.state.money +
-          ". Click farmland squares to pull title deeds ($" +
-          cost +
+        "Jar has " +
+          money(ui.state.money) +
+          ". Click farmland squares to pull title deeds (" +
+          money(cost) +
           " an acre), then move cards into Purchase. " +
           left +
           " square" +
@@ -204,7 +208,7 @@
       const s = ui.state;
       const carbonScale = Math.max(40, Zox.GOAL.carbonMin + 8);
       const items = [
-        { id: "money", label: "Profit", value: "$" + s.money, raw: s.money, good: s.money >= 40, warn: s.money < 20 },
+        { id: "money", label: "Jar", value: money(s.money), raw: s.money, good: s.money >= Zox.BUILDINGS.farm.cost, warn: s.money < Zox.BUILDINGS.farm.cost / 2 },
         {
           id: "carbon",
           label: "Carbon",
@@ -238,12 +242,17 @@
             tone = (s.health || 0) >= Zox.GOAL.healthMin ? "good" : (s.health || 0) < 35 ? "bad" : "ok";
           else if (m.id === "energy") tone = s.energySupply >= s.energyDemand ? "good" : s.energyDemand ? "bad" : "ok";
           else if (m.id === "people") tone = s.population >= 8 ? "good" : "ok";
-          else if (m.id === "money") tone = s.money < 0 ? "bad" : s.money < 20 ? "warn" : "ok";
+          else if (m.id === "money")
+            tone = s.money < 0 ? "bad" : s.money < 20 * (Zox.MONEY_SCALE || 1) ? "warn" : "ok";
 
           const delta = s.lastDelta && mapDeltaKey(m.id) ? s.lastDelta[mapDeltaKey(m.id)] : null;
+          const deltaText =
+            m.id === "money"
+              ? (delta > 0 ? "+" : "") + money(delta)
+              : signed(delta);
           const dHtml =
             delta && delta !== 0
-              ? `<span class="delta ${delta > 0 ? "up" : "down"}">${signed(delta)}</span>`
+              ? `<span class="delta ${delta > 0 ? "up" : "down"}">${deltaText}</span>`
               : "";
           const label =
             m.id === "carbon"
@@ -274,14 +283,14 @@
       const jar = Zox.Sim.nextDeed(ui.state);
       box.innerHTML =
         `<span class="kicker">This season</span>` +
-        `<span><i>Crops</i> <b>$${inc.crops}</b></span>` +
-        (inc.inputs ? `<span><i>Chem bill</i> <b>−$${inc.inputs}</b></span>` : `<span><i>Chem bill</i> <b>$0</b></span>`) +
-        `<span><i>Crop rent</i> <b>$${inc.graze || 0}</b></span>` +
-        `<span><i>LIC rent</i> <b>$${inc.apartments}</b></span>` +
-        (inc.villageLease ? `<span><i>Village lease</i> <b>$${inc.villageLease}</b></span>` : "") +
-        `<span><i>Carbon credits</i> <b>$${inc.credits}</b></span>` +
-        `<span class="income-net"><i>Net</i> <b>${inc.net >= 0 ? "+" : ""}$${inc.net}</b></span>` +
-        `<span class="income-deed">Deed $${deed.cost}. Traditional net $${deed.tradNet} buys one every ${deed.tradAcres} acres. Regen net $${deed.regenNet} buys one every ${deed.regenAcres}. ${jar.text}</span>`;
+        `<span><i>Crops</i> <b>${money(inc.crops)}</b></span>` +
+        (inc.inputs ? `<span><i>Chem bill</i> <b>${money(-inc.inputs)}</b></span>` : `<span><i>Chem bill</i> <b>$0</b></span>`) +
+        `<span><i>Crop rent</i> <b>${money(inc.graze || 0)}</b></span>` +
+        `<span><i>LIC rent</i> <b>${money(inc.apartments)}</b></span>` +
+        (inc.villageLease ? `<span><i>Village lease</i> <b>${money(inc.villageLease)}</b></span>` : "") +
+        `<span><i>Carbon credits</i> <b>${money(inc.credits)}</b></span>` +
+        `<span class="income-net"><i>Net</i> <b>${inc.net < 0 ? "" : "+"}${money(inc.net)}</b></span>` +
+        `<span class="income-deed">Deed ${money(deed.cost)}. Traditional net ${money(deed.tradNet)} buys one every ${deed.tradAcres} acres. Regen net ${money(deed.regenNet)} buys one every ${deed.regenAcres}. ${jar.text}</span>`;
     }
 
     function mapDelta(d) {
@@ -312,7 +321,7 @@
         .map((raw) => {
           const t = toolDef(raw);
           const on = ui.tool === t.id ? " is-on" : "";
-          const cost = t.kind === "build" ? `<span class="cost">$${t.cost}</span>` : `<span class="cost mute">free</span>`;
+          const cost = t.kind === "build" ? `<span class="cost">${money(t.cost)}</span>` : `<span class="cost mute">free</span>`;
           const broke = t.kind === "build" && ui.state.money < t.cost ? " is-broke" : "";
           return `<button type="button" class="tool${on}${broke}" data-tool="${t.id}" title="${t.hint}">
           <span class="glyph" aria-hidden="true">${ICONS[t.id]}</span>
@@ -352,7 +361,7 @@
           buyBtn.hidden = !afford;
           if (afford) {
             buyBtn.textContent =
-              "Choose a square ($" + Zox.BUILDINGS.farm.cost + ")";
+              "Choose a square (" + money(Zox.BUILDINGS.farm.cost) + ")";
           }
         }
         if (place) place.textContent = "Improvements on this farm";
@@ -387,7 +396,7 @@
           buyBtnW.hidden = !affordW;
           if (affordW) {
             buyBtnW.textContent =
-              "Choose a square ($" + Zox.BUILDINGS.farm.cost + ")";
+              "Choose a square (" + money(Zox.BUILDINGS.farm.cost) + ")";
           }
         }
         if (place) place.textContent = "What to place";
@@ -435,7 +444,7 @@
       const info = toolDef(tool);
       el("tool-name").textContent = info.name;
       el("tool-hint").textContent = info.hint;
-      el("tool-cost").textContent = info.kind === "build" ? "Costs $" + info.cost : "No cost";
+      el("tool-cost").textContent = info.kind === "build" ? "Costs " + money(info.cost) : "No cost";
 
       const inspectBox = el("inspect");
       if (ui.view === "world") {
@@ -473,7 +482,7 @@
               : g.better === "lower"
                 ? "≤ " + g.need
                 : "≥ " + g.need;
-          const have = g.key === "solvent" ? "$" + g.have : g.have;
+          const have = g.key === "solvent" ? money(g.have) : g.have;
           return `<li class="${g.ok ? "is-met" : ""}"><span>${g.label}</span> <b>${have}</b> <em>${need}</em></li>`;
         })
         .join("");
@@ -521,7 +530,7 @@
       if (payEl) {
         payEl.textContent =
           grazePay > 0
-            ? "Animals graze · manure stays · about +$" + grazePay + " crop rent"
+            ? "Animals graze · manure stays · about +" + money(grazePay) + " crop rent"
             : "Buy a farm first — then rent the crop to the animals";
       }
       if (nextBtn) nextBtn.setAttribute("aria-label", "End season: rent crop to animals, collect graze rent, turn the season");
@@ -537,7 +546,7 @@
       const n = Math.round(Number(v) * 10) / 10;
       if (kind === "cash") {
         if (!n) return "$0";
-        return "−$" + n;
+        return money(-Math.abs(n));
       }
       if (kind === "mult") return n + "×";
       if (kind === "good") return (n > 0 ? "+" : "") + n;
@@ -567,11 +576,11 @@
       });
       body += `<tr class="subtotal"><th>Chem bill</th>`;
       columns.forEach((col) => {
-        body += `<td class="${col.id}${col.you ? " is-you" : ""}">${col.inputs ? "−$" + col.inputs : "$0"}</td>`;
+        body += `<td class="${col.id}${col.you ? " is-you" : ""}">${col.inputs ? money(-col.inputs) : "$0"}</td>`;
       });
       body += `</tr><tr class="netline"><th>Net $/acre</th>`;
       columns.forEach((col) => {
-        body += `<td class="${col.id}${col.you ? " is-you" : ""}">$${col.net}</td>`;
+        body += `<td class="${col.id}${col.you ? " is-you" : ""}">${money(col.net)}</td>`;
       });
       body += `</tr>`;
       return `<table class="ledger-compare">${head}<tbody>${body}</tbody></table>`;
@@ -601,7 +610,7 @@
       const graduating = books && books.model === "converting" && books.year === 5;
       box.innerHTML =
         ledgerCompareHTML(columns) +
-        `<p class="quiet compare-punch">Regen nets <b>$${deed.regenNet}/acre</b> with a $0 chem bill and 6× nutrition. Traditional nets <b>$${deed.tradNet}/acre</b> after the full chem bill. A deed is <b>$${deed.cost}</b> — regen buys one every ${deed.regenAcres} acre-seasons, traditional every ${deed.tradAcres}. ${jar.text}</p>` +
+        `<p class="quiet compare-punch">Regen nets <b>${money(deed.regenNet)}/acre</b> with a $0 chem bill and 6× nutrition. Traditional nets <b>${money(deed.tradNet)}/acre</b> after the full chem bill. A deed is <b>${money(deed.cost)}</b> — regen buys one every ${deed.regenAcres} acre-seasons, traditional every ${deed.tradAcres}. ${jar.text}</p>` +
         (graduating
           ? `<p class="quiet compare-punch">Year 5 is the last chem line on ${farm.name}. Next season graduates it: $0 chem, 6× nutrition, mature carbon, and the rail can light.</p>`
           : "") +
@@ -635,13 +644,13 @@
       const yNutr = yours ? yours.nutritionMult : 0;
       const yCarbon = yours ? yours.carbonEach : 0;
       const tidy = (n) => Math.round((Number(n) || 0) * 10) / 10;
-      const money = (n) => {
+      const chemBill = (n) => {
         const v = tidy(n);
-        return v ? "−$" + v : "$0";
+        return v ? money(-Math.abs(v)) : "$0";
       };
       const plain = (n) => String(tidy(n));
       const mult = (n) => tidy(n) + "×";
-      const dollars = (n) => "$" + tidy(n);
+      const dollars = (n) => money(n);
       let cashRows = "";
       const cashGroup = (Zox.LEDGER_SPEC || [])[0];
       if (cashGroup) {
@@ -649,7 +658,7 @@
           const a = (trad.ledger && trad.ledger[row.key]) || 0;
           const b = yLedger[row.key] || 0;
           const c = (regen.ledger && regen.ledger[row.key]) || 0;
-          cashRows += `<tr><th>${row.label}</th><td class="trad">${money(a)}</td><td class="you">${money(b)}</td><td class="regen">${money(c)}</td></tr>`;
+          cashRows += `<tr><th>${row.label}</th><td class="trad">${chemBill(a)}</td><td class="you">${chemBill(b)}</td><td class="regen">${chemBill(c)}</td></tr>`;
         });
       }
       const L = trad.ledger || {};
@@ -673,16 +682,16 @@
         cmpRow("Runoff + erosion", (L.runoff || 0) + (L.erosion || 0), (yLedger.runoff || 0) + (yLedger.erosion || 0), (R.runoff || 0) + (R.erosion || 0), plain) +
         `<table class="report-cash-table"><tbody>` +
         cashRows +
-        `<tr class="netline"><th>Net $/acre</th><td>$${trad.net}</td><td>$${yNet}</td><td>$${regen.net}</td></tr>` +
+        `<tr class="netline"><th>Net $/acre</th><td>${money(trad.net)}</td><td>${money(yNet)}</td><td>${money(regen.net)}</td></tr>` +
         `</tbody></table>` +
         `<div class="report-totals">` +
         `<div><b>Cumulative carbon</b> ${report.carbonTotal}</div>` +
         `<div><b>Acres</b> ${report.acres} (${report.matureAcres} mature)</div>` +
         `<div><b>Eco-villages</b> ${report.villages}</div>` +
         `<div><b>Rail</b> ${report.railPct}% (${report.railLit}/${report.railNeed} lit${report.villagePct ? ", +" + report.villagePct + "% from villages" : ""})</div>` +
-        `<div class="report-cash"><b>Jar</b> $${report.money} · season net ${report.incomeNet >= 0 ? "+" : ""}$${report.incomeNet} · graze $${report.graze || 0}${report.villageLease ? " · village lease $" + report.villageLease : ""}</div>` +
+        `<div class="report-cash"><b>Jar</b> ${money(report.money)} · season net ${report.incomeNet < 0 ? "" : "+"}${money(report.incomeNet)} · graze ${money(report.graze || 0)}${report.villageLease ? " · village lease " + money(report.villageLease) : ""}</div>` +
         `</div>` +
-        `<p class="report-link">${report.jar ? report.jar.text : ""} A deed is $${report.deed ? report.deed.cost : 48}. Regen net buys one every ${report.deed ? report.deed.regenAcres : 3} acre-seasons; traditional needs ${report.deed ? report.deed.tradAcres : 6}.</p>`
+        `<p class="report-link">${report.jar ? report.jar.text : ""} A deed is ${money(report.deed ? report.deed.cost : Zox.BUILDINGS.farm.cost)}. Regen net buys one every ${report.deed ? report.deed.regenAcres : 3} acre-seasons; traditional needs ${report.deed ? report.deed.tradAcres : 6}.</p>`
       );
     }
 
@@ -724,23 +733,23 @@
         " health and " +
         (Zox.BUILDINGS.village.nutritionBoost || 0) +
         " nutrition, and they put stations on the rail.</p>" +
-        "<p><b>The ledger</b> is why regen scores higher. Traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals. That chem bill is $" +
-        tradBill +
-        " on a $" +
-        tradGross +
-        " gross, so net is $" +
-        deed.tradNet +
-        "/acre. Regenerative pays $0 for every one of those lines (gross $" +
-        regenGross +
-        ", net $" +
-        deed.regenNet +
+        "<p><b>The ledger</b> is why regen scores higher. Traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals. That chem bill is " +
+        money(tradBill) +
+        " on a " +
+        money(tradGross) +
+        " gross, so net is " +
+        money(deed.tradNet) +
+        "/acre. Regenerative pays $0 for every one of those lines (gross " +
+        money(regenGross) +
+        ", net " +
+        money(deed.regenNet) +
         "). Animals graze the residue and manure stays, so manure nutrients and soil organic matter rise, runoff and erosion fall, and biodiversity climbs. Labor shifts off the chem crew and onto living-system care (an index, not a second invoice).</p>" +
-        "<p><b>Net $/acre</b> is gross minus that chem bill: traditional $" +
-        deed.tradNet +
-        ", regenerative $" +
-        deed.regenNet +
-        ". A deed costs $" +
-        deed.cost +
+        "<p><b>Net $/acre</b> is gross minus that chem bill: traditional " +
+        money(deed.tradNet) +
+        ", regenerative " +
+        money(deed.regenNet) +
+        ". A deed costs " +
+        money(deed.cost) +
         ", so regen income buys the next farm every " +
         deed.regenAcres +
         " acre-seasons and traditional needs " +
@@ -874,8 +883,8 @@
       const rent = Zox.LIC.income;
       const seasons = Math.max(1, Math.ceil(short / Math.max(1, rent)));
       return (
-        "Apartment rent from the Long Island City building is $" +
-        rent +
+        "Apartment rent from the Long Island City building is " +
+        money(rent) +
         " a season — about " +
         seasons +
         " season" +
@@ -887,27 +896,27 @@
     function shortfallText(check) {
       if (check.staged > 0 && check.alone) {
         return (
-          "This deed is $" +
-          check.cost +
-          ", and you could afford it by itself. Purchase already holds $" +
-          check.staged +
-          ", so together that is $" +
-          check.need +
-          ". The jar has $" +
-          check.have +
-          " — short $" +
-          check.short +
+          "This deed is " +
+          money(check.cost) +
+          ", and you could afford it by itself. Purchase already holds " +
+          money(check.staged) +
+          ", so together that is " +
+          money(check.need) +
+          ". The jar has " +
+          money(check.have) +
+          " — short " +
+          money(check.short) +
           ". " +
           rentHint(check.short)
         );
       }
       return (
-        "Not enough cash for this deed. It costs $" +
-        check.cost +
-        " and the jar has $" +
-        check.have +
-        " — short $" +
-        check.short +
+        "Not enough cash for this deed. It costs " +
+        money(check.cost) +
+        " and the jar has " +
+        money(check.have) +
+        " — short " +
+        money(check.short) +
         ". " +
         rentHint(check.short)
       );
@@ -941,7 +950,7 @@
           " acre · " +
           (prog.mature ? "regenerative" : "converting year " + prog.year + " of 5");
       } else {
-        text = parcel.name + " · $" + deedCost() + " · " + acres + " acre · owner " + owner + " · click for the deed";
+        text = parcel.name + " · " + money(deedCost()) + " · " + acres + " acre · owner " + owner + " · click for the deed";
       }
       tip.textContent = text;
       tip.hidden = false;
@@ -965,23 +974,23 @@
         note = "Ready to buy with the other cards in Purchase. Confirm to spend the cash.";
       } else if (check.ok) {
         note = check.staged
-          ? "The jar can cover this along with the $" + check.staged + " already in Purchase."
+          ? "The jar can cover this along with the " + money(check.staged) + " already in Purchase."
           : "The jar can cover this deed.";
       } else if (check.alone) {
         note =
-          "Affordable alone ($" +
-          cost +
-          "). Purchase already holds $" +
-          check.staged +
-          " — together you are short $" +
-          check.short +
+          "Affordable alone (" +
+          money(cost) +
+          "). Purchase already holds " +
+          money(check.staged) +
+          " — together you are short " +
+          money(check.short) +
           ".";
       } else {
         note =
-          "Short $" +
-          check.short +
-          ". Wait for apartment rent ($" +
-          Zox.LIC.income +
+          "Short " +
+          money(check.short) +
+          ". Wait for apartment rent (" +
+          money(Zox.LIC.income) +
           " a season) before this deed will clear.";
       }
       const pop = ui.freshDeed === parcelId ? " is-pop" : "";
@@ -997,7 +1006,7 @@
         `<div class="m-body">` +
         `<p class="m-row"><span>Owner</span><b>${esc(owner)}</b></p>` +
         `<p class="m-row m-acres"><span>Acres</span><b>${parcel.acres || 1}</b></p>` +
-        `<p class="m-row m-price"><span>Cost</span><b>$${cost}</b></p>` +
+        `<p class="m-row m-price"><span>Cost</span><b>${money(cost)}</b></p>` +
         `<p class="m-note">${esc(note)}</p>` +
         `<p class="m-look">Click the card to see the farm</p>` +
         `</div>` +
@@ -1056,7 +1065,7 @@
         `<div class="m-body">` +
         `<p class="m-row"><span>Owner</span><b>${esc(card.owner)}</b></p>` +
         `<p class="m-row m-acres"><span>Acres</span><b>${esc(card.acres)}</b></p>` +
-        `<p class="m-row m-price"><span>Cost</span><b>$${esc(card.cost)}</b></p>` +
+        `<p class="m-row m-price"><span>Cost</span><b>${money(card.cost)}</b></p>` +
         `<p class="m-why"><span>Why buy</span> ${esc(card.reason)}</p>` +
         `<p class="m-beat">${esc(beat)}</p>` +
         `</div>` +
@@ -1153,14 +1162,13 @@
         " of " +
         info.decades +
         ". Last year net " +
-        (net >= 0 ? "+" : "") +
-        "$" +
-        net +
-        ". Jar $" +
-        ui.state.money +
+        (net < 0 ? "" : "+") +
+        money(net) +
+        ". Jar " +
+        money(ui.state.money) +
         ". Villages " +
         villages +
-        (books.lease ? ", lease $" + books.lease : "") +
+        (books.lease ? ", lease " + money(books.lease) : "") +
         ". Rail " +
         (ui.state.builtRail || 0) +
         "."
@@ -1472,16 +1480,16 @@
       const stops = Zox.Sim.corridorVillages(ui.state);
       if (econ) {
         econ.textContent =
-          "Build $" +
-          cost +
-          " · lease $" +
-          spec.lease +
-          "/season once open · sell $" +
-          spec.sale +
-          ". Collected lease $" +
-          (books.lease || 0) +
-          " · sales $" +
-          (books.saleCash || 0) +
+          "Build " +
+          money(cost) +
+          " · lease " +
+          money(spec.lease) +
+          "/season once open · sell " +
+          money(spec.sale) +
+          ". Collected lease " +
+          money(books.lease || 0) +
+          " · sales " +
+          money(books.saleCash || 0) +
           " (" +
           (books.sales || 0) +
           ").";
@@ -1505,16 +1513,16 @@
           const broke = ui.state.money < stop.cost || ui.state.status !== "playing" || ui.apOn;
           button =
             `<button type="button" data-fund-village="${esc(stop.parcelId)}"${broke ? " disabled" : ""}>` +
-            (ui.apOn ? "Autopilot" : "Fund · $" + stop.cost) +
+            (ui.apOn ? "Autopilot" : "Fund · " + money(stop.cost)) +
             `</button>`;
         } else if (stop.action === "building") {
           detail = stageWord(stop.stage) + " this season. It opens on the corridor before the rail is laid.";
           button = `<button type="button" disabled>${stageWord(stop.stage)}</button>`;
         } else if (stop.action === "sell") {
-          detail = "Open. Lease $" + stop.lease + " each season, or sell for $" + stop.sale + ". Station stays.";
+          detail = "Open. Lease " + money(stop.lease) + " each season, or sell for " + money(stop.sale) + ". Station stays.";
           button =
             `<button type="button" data-sell-village="${esc(stop.farmId)}"${ui.apOn || ui.state.status !== "playing" ? " disabled" : ""}>` +
-            (ui.apOn ? "Open · lease $" + stop.lease : "Sell · $" + stop.sale) +
+            (ui.apOn ? "Open · lease " + money(stop.lease) : "Sell · " + money(stop.sale)) +
             `</button>`;
         } else {
           detail = "Sold. Lease stopped. The station stays on the line.";
@@ -1526,7 +1534,7 @@
           `<header><span>Stop</span><strong>${esc(stop.name)}</strong></header>` +
           art +
           `<p class="v-stage-label">${esc(stageWord(stop.stage))}</p>` +
-          `<p class="v-econ">Build $${stop.cost} · Lease $${stop.lease} · Sale $${stop.sale}</p>` +
+          `<p class="v-econ">Build ${money(stop.cost)} · Lease ${money(stop.lease)} · Sale ${money(stop.sale)}</p>` +
           `<p class="v-detail">${esc(detail)}</p>` +
           button +
           `</article>`;
@@ -1623,19 +1631,19 @@
       const jar = el("deed-jar");
       if (jar) {
         jar.textContent =
-          "Jar $" +
-          ui.state.money +
-          " · apartment rent $" +
-          Zox.LIC.income +
-          " each season · $" +
-          deedCost() +
+          "Jar " +
+          money(ui.state.money) +
+          " · apartment rent " +
+          money(Zox.LIC.income) +
+          " each season · " +
+          money(deedCost()) +
           " an acre";
       }
       const btn = el("deed-confirm");
       if (btn) {
         const total = buyCount * deedCost();
         btn.disabled = buyCount === 0 || ui.state.money < total || ui.state.status !== "playing";
-        btn.textContent = buyCount ? "Purchase " + buyCount + " · $" + total : "Purchase";
+        btn.textContent = buyCount ? "Purchase " + buyCount + " · " + money(total) : "Purchase";
       }
       const alert = el("deed-alert");
       if (alert) {
@@ -1810,7 +1818,7 @@
       if (pop) pop.textContent = String(wins.population || 0);
       const grazeEl = el("graze-win-num");
       const graze = (ui.state.lastIncome && ui.state.lastIncome.graze) || 0;
-      if (grazeEl) grazeEl.textContent = "$" + graze;
+      if (grazeEl) grazeEl.textContent = money(graze);
 
       const title = el("season-win-title");
       if (title && report && report.decade) {
@@ -1834,8 +1842,8 @@
         buyNext.hidden = !afford;
         if (afford) {
           buyNext.textContent =
-            "Pull the next deed ($" +
-            Zox.BUILDINGS.farm.cost +
+            "Pull the next deed (" +
+            money(Zox.BUILDINGS.farm.cost) +
             ")";
         }
       }
@@ -2035,7 +2043,7 @@
             }
             const res = Zox.Sim.sellVillage(ui.state, sell.getAttribute("data-sell-village"));
             ui.boardKey = "";
-            flash(res.ok ? "Sold for $" + res.price + ". The station stays. Lease stops." : res.why);
+            flash(res.ok ? "Sold for " + money(res.price) + ". The station stays. Lease stops." : res.why);
             render();
           }
         });

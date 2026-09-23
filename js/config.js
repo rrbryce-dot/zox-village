@@ -5,85 +5,107 @@
 (function (global) {
   const Zox = (global.Zox = global.Zox || {});
 
+  /* Toy Monopoly dollars × 1,000. A 1-acre deed was $48; it is now $48,000 ($48k). */
+  const MONEY_SCALE = 1000;
+  function cash(n) {
+    return Math.round(Number(n) * MONEY_SCALE);
+  }
+  function dollars(n) {
+    const v = Math.round(Number(n) || 0);
+    const neg = v < 0;
+    const a = Math.abs(v);
+    let body;
+    if (a >= 1000000) {
+      const m = Math.round((a / 1000000) * 10) / 10;
+      body = (m % 1 === 0 ? String(Math.round(m)) : String(m)) + "m";
+    } else if (a >= 1000) {
+      const k = Math.round((a / 1000) * 10) / 10;
+      body = (k % 1 === 0 ? String(Math.round(k)) : String(k)) + "k";
+    } else {
+      body = String(a);
+    }
+    return (neg ? "−$" : "$") + body;
+  }
+
   const BUILDINGS = {
     home: {
       id: "home",
       name: "Green home",
       short: "Home",
-      cost: 44,
+      cost: cash(44),
       pop: 4,
       energyUse: 2,
       waste: 2,
-      upkeep: 2,
+      upkeep: cash(2),
       hint: "Four chairs on this farm. Needs a power yard on this same board. Tidier beside a compost heap.",
     },
     farm: {
       id: "farm",
       name: "Farmland",
       short: "Farm",
-      cost: 48,
+      cost: cash(48),
       convertYears: 5,
-      income: 16,
+      income: cash(16),
       nature: 2,
       waste: 0,
-      upkeep: 1,
-      credits: 4,
-      youngIncome: 6,
+      upkeep: cash(1),
+      credits: cash(4),
+      youngIncome: cash(6),
       youngNature: 0,
       youngWaste: 1,
-      youngCredits: 1,
-      hint: "Click a mosaic square. Its title deed pops on the table. Move the card to Purchase when the jar can cover it — $48 an acre. Soil takes five years to drop the chem bill.",
+      youngCredits: cash(1),
+      hint: "Click a mosaic square. Its title deed pops on the table. Move the card to Purchase when the jar can cover it — $48k an acre. Soil takes five years to drop the chem bill.",
     },
     solar: {
       id: "solar",
       name: "Sun & wind yard",
       short: "Power",
-      cost: 56,
+      cost: cash(56),
       energy: 6,
-      upkeep: 1,
+      upkeep: cash(1),
       hint: "Quiet kilowatts on this farm. Homes here stop arguing about the fuse box.",
     },
     compost: {
       id: "compost",
       name: "Compost hub",
       short: "Compost",
-      cost: 46,
+      cost: cash(46),
       wasteSink: 6,
       radius: 2,
       wasteFactor: 0.4,
       nature: 1,
-      upkeep: 1,
+      upkeep: cash(1),
       hint: "On this farm. Scraps become soil. Homes and the crop in a 2-tile walk stay neat.",
     },
     rail: {
       id: "rail",
       name: "Green rail",
       short: "Rail",
-      cost: 48,
-      upkeep: 1,
+      cost: cash(48),
+      upkeep: cash(1),
       hint: "On this farm. Lay two or more adjoining tiles. Nearby lots earn more and feel closer.",
     },
     park: {
       id: "park",
       name: "Orchard park",
       short: "Orchard",
-      cost: 34,
+      cost: cash(34),
       nature: 3,
       happy: 3,
       wasteSink: 1,
       upkeep: 0,
-      credits: 3,
+      credits: cash(3),
       hint: "On this farm. Sunday walking. Birds come back. A little carbon credit on the side.",
     },
     village: {
       id: "village",
       name: "Eco-village",
       short: "Village",
-      cost: 52,
+      cost: cash(52),
       pop: 6,
       energyUse: 2,
       waste: 1,
-      upkeep: 2,
+      upkeep: cash(2),
     healthBoost: 8,
     nutritionBoost: 4,
     railBoost: 1,
@@ -99,8 +121,8 @@
    */
   const VILLAGE_WORKS = {
     stages: ["site", "framing", "open"],
-    lease: 6,
-    sale: 84,
+    lease: cash(6),
+    sale: cash(84),
   };
 
   const REGION_LOOKS = [
@@ -173,8 +195,8 @@
   };
 
   const START = {
-    /* Two deeds ($48 × 2) plus a little walking-around money. Income buys the rest. */
-    money: 120,
+    /* Two deeds ($48k × 2) plus a little walking-around money. Income buys the rest. */
+    money: cash(120),
     waste: 15,
     nature: 54,
     happiness: 52,
@@ -193,8 +215,8 @@
    * Mature regen fields rent higher — that is cash and soil.
    */
   const GRAZE_RENT = {
-    mature: 9,
-    converting: 4,
+    mature: cash(9),
+    converting: cash(4),
     hint: "Rent the crop to the animals. They eat. They poop. You get paid and the soil gets manure.",
   };
 
@@ -207,11 +229,11 @@
     grove: 1,
     groveCap: 4,
     /* Money credits (income strip) — separate from sequestration meter */
-    creditMature: 4,
-    creditYoung: 1,
-    creditPark: 3,
-    creditGrove: 1,
-    creditGroveCap: 3,
+    creditMature: cash(4),
+    creditYoung: cash(1),
+    creditPark: cash(3),
+    creditGrove: cash(1),
+    creditGroveCap: cash(3),
   };
 
   /**
@@ -238,7 +260,7 @@
 
   const LIC = {
     name: "LIC green building",
-    income: 11,
+    income: cash(11),
     hint: "Already standing in Long Island City — not on this corridor map. Rent and royalties arrive each season and buy farmland along the rail.",
   };
 
@@ -303,25 +325,25 @@
   /**
    * Per-season crop books, before water/rail bonuses.
    * Traditional is the comparison baseline (not a placeable tile).
-   * Cash lines on traditional sum to inputs (10). Regen cash lines are all $0.
-   * Net $8 vs $16 is why regen income buys the next deed sooner (6 acre-seasons vs 3).
+   * Cash lines on traditional sum to inputs ($10k). Regen cash lines are all $0.
+   * Net $8k vs $16k is why regen income buys the next deed sooner (6 acre-seasons vs 3).
    */
   const FARM_MODELS = {
     traditional: {
       id: "traditional",
       name: "Traditional",
-      gross: 18,
-      inputs: 10,
-      note: "Pays the full chem bill every season — fertilizer through diesel. Net $8/acre. It takes six of those acres to buy the next deed.",
+      gross: cash(18),
+      inputs: cash(10),
+      note: "Pays the full chem bill every season — fertilizer through diesel. Net $8k/acre. It takes six of those acres to buy the next deed.",
       ledger: {
-        fertilizer: 2.4,
-        syntheticNitrogen: 2.2,
-        insecticides: 1.2,
-        herbicides: 1.2,
-        fungicides: 0.8,
-        fossilFuel: 1.4,
-        purchasedSeed: 0.5,
-        irrigationChemicals: 0.3,
+        fertilizer: cash(2.4),
+        syntheticNitrogen: cash(2.2),
+        insecticides: cash(1.2),
+        herbicides: cash(1.2),
+        fungicides: cash(0.8),
+        fossilFuel: cash(1.4),
+        purchasedSeed: cash(0.5),
+        irrigationChemicals: cash(0.3),
         laborChem: 8,
         laborLiving: 2,
         waterUse: 10,
@@ -338,11 +360,11 @@
       id: "converting",
       name: "Converting",
       years: [
-        { year: 1, gross: 10, inputs: 6 },
-        { year: 2, gross: 11, inputs: 4 },
-        { year: 3, gross: 12, inputs: 3 },
-        { year: 4, gross: 13, inputs: 2 },
-        { year: 5, gross: 14, inputs: 1 },
+        { year: 1, gross: cash(10), inputs: cash(6) },
+        { year: 2, gross: cash(11), inputs: cash(4) },
+        { year: 3, gross: cash(12), inputs: cash(3) },
+        { year: 4, gross: cash(13), inputs: cash(2) },
+        { year: 5, gross: cash(14), inputs: cash(1) },
       ],
       note: "The bag shrinks each year of the five-season convert. Year 5 is the last look at a chem line — the next season is regenerative.",
       ledger: null,
@@ -350,9 +372,9 @@
     regenerative: {
       id: "regenerative",
       name: "Zox regenerative",
-      gross: 16,
+      gross: cash(16),
       inputs: 0,
-      note: "Chem bill $0. Animals graze the residue and manure stays, so nutrients and soil organic matter come back. Nutrition is 6×. Net $16/acre — three acre-seasons buy the next deed.",
+      note: "Chem bill $0. Animals graze the residue and manure stays, so nutrients and soil organic matter come back. Nutrition is 6×. Net $16k/acre — three acre-seasons buy the next deed.",
       ledger: {
         fertilizer: 0,
         syntheticNitrogen: 0,
@@ -483,6 +505,8 @@
   Zox.NUTRITION = NUTRITION;
   Zox.BOOK = BOOK;
   Zox.LIC = LIC;
+  Zox.MONEY_SCALE = MONEY_SCALE;
+  Zox.dollars = dollars;
   Zox.FARM_MODELS = FARM_MODELS;
   Zox.LEDGER_CASH = LEDGER_CASH;
   Zox.LEDGER_SPEC = LEDGER_SPEC;
