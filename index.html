@@ -20,7 +20,10 @@
           <p class="tag">Sequester carbon. Feed people 6× better. Light the rail.</p>
         </div>
         <div class="top-actions">
-          <p id="season" class="season">Decade 1 · Year 1 of 5 · Year 1 of 20</p>
+          <div class="season-block">
+            <p id="season" class="season">Decade 1 of 4 · Year 1 of 5</p>
+            <div id="decade-track" class="decade-track" aria-label="Four decades of seasons"></div>
+          </div>
           <p id="food-note" class="food-note">Settlement is empty.</p>
           <button type="button" id="chat-toggle" class="btn ghost" aria-expanded="false" aria-controls="zox-chat">Ask ZOX</button>
           <button type="button" id="restart" class="btn ghost">Restart</button>
@@ -139,7 +142,7 @@
         <aside class="notes">
           <section class="compare-panel">
             <h2>Traditional vs Regenerative</h2>
-            <p class="quiet">Always on. Full input ledger — fertilizer to diesel — so you see why regen nets more per acre and buys the next farm.</p>
+            <p class="quiet">Always on. Every cash input, then manure, carbon, nutrition, water, and labor — so the net per acre is obvious. That net buys the next farm.</p>
             <div id="farm-sidebar" class="farm-sidebar">
               <article class="farm-col traditional">
                 <h3>Traditional</h3>
@@ -181,6 +184,7 @@
           <section>
             <h2>Win across 4 decades</h2>
             <ul id="goals" class="goals"></ul>
+            <p id="horizon" class="horizon"></p>
           </section>
           <section>
             <h2>Kitchen table</h2>
@@ -220,9 +224,10 @@
       <div class="card">
         <p class="eyebrow">ZOX Village</p>
         <h2 id="intro-title">LIC rent. Corridor farms. Carbon + health win.</h2>
-        <p>Song royalties already bought a green building in Long Island City — off this map. That city rent lands every season.</p>
-        <p>This board is the aerial corridor from Detroit down toward Toledo and east to Jersey City. The dashed green line is the future rail. Loop: buy a farm along the corridor → walk it → five-season regen → crops and LIC rent buy the next parcel along the line. Mature farms sequester carbon and light rail segments solid. Unlock eco-villages beside mature regen farms — they boost Health and rail readiness, the porch-book pattern that carries Detroit to Jersey City. Compost, power, orchards, and homes go on the farm board — not on the corridor.</p>
-        <p><strong>Win</strong> by sequestering enough <strong>carbon in a single season</strong> and raising <strong>population health</strong> on regenerative nutrition that is <strong>6× better than traditional</strong> — across <strong>four decades</strong> (20 seasons) are up. Stay in the black. Soft fails: broke, waste disaster, or time out.</p>
+        <p>Song royalties already bought a green building in Long Island City — off this map. That city rent lands every season. The opening jar covers the first two deeds. After that, <strong>net income buys more farmland</strong>.</p>
+        <p>This board is the aerial corridor from Detroit down toward Toledo and east to Jersey City, played across <strong>four decades</strong> (20 seasons). The dashed green line is the future rail. Loop: buy a farm along the corridor → walk it → five-season regen → crops and LIC rent buy the next parcel. Mature farms sequester carbon and light rail segments solid. Eco-villages sit on mature regen farms — they boost Health and add stations on the rail. Compost, power, orchards, and homes go on the farm board — not on the corridor.</p>
+        <p>The ledger is the reason to wait: traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, seed, and irrigation chemicals. Regenerative pays <strong>$0</strong> for those, because animals graze the residue and manure stays. Nutrition is <strong>1× vs 6×</strong>. Net is <strong>$8 vs $16 per acre</strong>.</p>
+        <p><strong>Win</strong> when one season sequesters enough <strong>carbon</strong> and <strong>population health</strong> is high enough. Decade 1 converts soil; the carbon gate needs a run of mature acres after that. Stay in the black. Soft fails: broke, waste disaster, or time runs out after four decades.</p>
         <p class="book-line intro-book">The story behind this board: <a class="book-link" href="https://www.amazon.com/Luckiest-Dog-Porch-Jacob-Westbrook/dp/B0F36LGDKG" target="_blank" rel="noopener noreferrer">The Luckiest Dog on the Porch on Amazon</a> (Jacob Westbrook).</p>
         <button type="button" id="play-now" class="btn primary">Sit down at the table</button>
       </div>
@@ -239,7 +244,7 @@
     </div>
 
     <div id="season-win" class="veil" hidden role="dialog" aria-labelledby="season-win-title">
-      <div class="card season-win-card">
+      <div class="card season-win-card report-card">
         <p class="eyebrow">This season</p>
         <h2 id="season-win-title">Season report card</h2>
         <div class="graze-scene" aria-hidden="true">

@@ -209,20 +209,35 @@
   }
 
   function compareReply() {
-    const t = Zox.FARM_MODELS.traditional;
-    const r = Zox.FARM_MODELS.regenerative;
+    const rows = Zox.Sim.farmModelRows(3);
+    const t = rows[0];
+    const c = rows[1];
+    const r = rows[2];
+    const deed = Zox.Sim.acresPerDeed();
     return (
-      "Traditional: $" +
+      "Traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals: $" +
       t.gross +
-      " gross minus $" +
+      " gross − $" +
       t.inputs +
-      " fertilizer, pesticides, and nitrogen = $" +
-      (t.gross - t.inputs) +
-      " net, nutrition 1×. Zox regen: $" +
+      " chem = $" +
+      t.net +
+      "/acre, nutrition 1×, carbon 0. Converting (year " +
+      (c.year || 3) +
+      ") is down to a $" +
+      c.inputs +
+      " chem bill, net $" +
+      c.net +
+      ". Zox regen pays $0 on every one of those lines: $" +
       r.gross +
-      " gross, $0 chem, graze and manure, $" +
-      (r.gross - r.inputs) +
-      " net, nutrition 6× traditional — that feeds the Health win meter. Conversion weans the bag over five years (~2× nutrition). Open Farm models for the three columns."
+      " gross, net $" +
+      r.net +
+      "/acre, nutrition 6×, and animals graze the residue so manure and soil organic matter come back. A deed is $" +
+      deed.cost +
+      ". Regen net buys one every " +
+      deed.regenAcres +
+      " acre-seasons; traditional needs " +
+      deed.tradAcres +
+      ". That gap is why the five-season wait pays for the next farm. The ledger is always on the right. Farm models (M) opens the same books larger."
     );
   }
 
@@ -252,13 +267,15 @@
       s.money +
       "). Health climbs because regenerative nutrition is " +
       (s.goal.nutritionFactor || 6) +
-      "× better than traditional — converting farms are about 2×. Soft loses: broke, waste disaster, or time out after four decades (" +
+      "× traditional — converting years climb toward that (about 2×, 3×, 4×, 5×) before graduation hits 6×. Eco-villages on mature farms add health and rail stations. Soft loses: broke, waste disaster, or time out after four decades (" +
       s.goal.seasons +
-      ". Win score is mostly that season's carbon plus health (plus a bit for rail progress and leftover seasons). Rail lit " +
+      " seasons). The two opening farms graduate at the end of decade 1 and still miss the carbon gate; the win wants a longer run of mature acres. Win score is mostly that season's carbon plus health (plus rail and leftover years). Rail " +
       s.railLit +
       "/" +
       s.railNeed +
-      "."
+      " segments, " +
+      (s.villages || 0) +
+      " villages."
     );
   }
 
@@ -287,7 +304,7 @@
 
   function healthReply(s) {
     return (
-      "Health is 0–100 from regenerative nutrition × people on the corridor. Traditional food = 1×. Converting ≈ 2×. Mature Zox regen = " +
+      "Health is 0–100 from regenerative nutrition × people on the corridor. Traditional food = 1×. Converting years climb (about 2×, then 3×, 4×, 5×). Mature Zox regen = " +
       (s.goal.nutritionFactor || 6) +
       "×. Orchards add a little. Even with few people, you still need enough regen nutrition on the board for health to climb toward " +
       s.goal.healthMin +
@@ -342,11 +359,15 @@
   
   function villageReply(s) {
     return (
-      "Eco-villages come from the porch book — place one on a mature regenerative farm (tool Village, key 7). Cost $" +
+      "Eco-villages come from the porch book. Place one on a mature regenerative farm (tool Village, key 7) — not on the corridor map, and not before the five-season convert finishes. Cost $" +
       ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.cost) || 52) +
-      ". They add people, boost Health / nutrition, and nudge rail readiness. Villages + mature farms are how the Detroit→Jersey City green rail comes alive. You have " +
+      ". They add people, boost Health by " +
+      ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.healthBoost) || 0) +
+      " and nutrition by " +
+      ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.nutritionBoost) || 0) +
+      ", and put a station on the green rail (a readiness bump, on top of mature farms lighting the segments). Villages plus farms are how Detroit reaches Jersey City. You have " +
       (s.villages != null ? s.villages : "?") +
-      " village(s) now."
+      " now."
     );
   }
 
@@ -355,9 +376,9 @@
     return (
       "Play spans four decades — " +
       (Zox.GOAL.seasons || 20) +
-      " years — toward lighting the green rail. Each decade has five seasons (years). Converting a farm takes one decade of soil work. " +
-      (d ? "You are in " + d.label + ". " : "") +
-      "Win by sequestering enough carbon in a single season and raising Health on 6× regen nutrition before time runs out."
+      " years — toward lighting the green rail. Each decade is five seasons. Converting a farm takes one of those decades. The carbon win does not land in decade 1: the opening farms graduate then, and you still need more mature acres. " +
+      (d ? "You are in " + d.short + " (year " + d.year + " of " + d.yearsTotal + "). " : "") +
+      "A decade-close report sums that decade's carbon. The rail to Jersey City is the long horizon either way."
     );
   }
 
