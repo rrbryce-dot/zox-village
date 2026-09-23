@@ -268,6 +268,7 @@
         (inc.inputs ? `<span><i>Chem bill</i> <b>−$${inc.inputs}</b></span>` : `<span><i>Chem bill</i> <b>$0</b></span>`) +
         `<span><i>Crop rent</i> <b>$${inc.graze || 0}</b></span>` +
         `<span><i>LIC rent</i> <b>$${inc.apartments}</b></span>` +
+        (inc.villageLease ? `<span><i>Village lease</i> <b>$${inc.villageLease}</b></span>` : "") +
         `<span><i>Carbon credits</i> <b>$${inc.credits}</b></span>` +
         `<span class="income-net"><i>Net</i> <b>${inc.net >= 0 ? "+" : ""}$${inc.net}</b></span>` +
         `<span class="income-deed">Deed $${deed.cost}. Traditional net $${deed.tradNet} buys one every ${deed.tradAcres} acres. Regen net $${deed.regenNet} buys one every ${deed.regenAcres}. ${jar.text}</span>`;
@@ -380,7 +381,7 @@
           }
         }
         if (place) place.textContent = "What to place";
-        if (keys) keys.textContent = "Click a square to pull its deed. Drag cards between the two columns. Enter turns the season.";
+        if (keys) keys.textContent = "Click a square to pull its deed. Cards sit side by side — click one for a picture of the farm. Enter turns the season.";
         if (meadow) meadow.textContent = "Meadow";
         if (legend) legend.hidden = true;
       }
@@ -654,7 +655,7 @@
         `<div><b>Acres</b> ${report.acres} (${report.matureAcres} mature)</div>` +
         `<div><b>Eco-villages</b> ${report.villages}</div>` +
         `<div><b>Rail</b> ${report.railPct}% (${report.railLit}/${report.railNeed} lit${report.villagePct ? ", +" + report.villagePct + "% from villages" : ""})</div>` +
-        `<div class="report-cash"><b>Jar</b> $${report.money} · season net ${report.incomeNet >= 0 ? "+" : ""}$${report.incomeNet} · graze $${report.graze || 0}</div>` +
+        `<div class="report-cash"><b>Jar</b> $${report.money} · season net ${report.incomeNet >= 0 ? "+" : ""}$${report.incomeNet} · graze $${report.graze || 0}${report.villageLease ? " · village lease $" + report.villageLease : ""}</div>` +
         `</div>` +
         `<p class="report-link">${report.jar ? report.jar.text : ""} A deed is $${report.deed ? report.deed.cost : 48}. Regen net buys one every ${report.deed ? report.deed.regenAcres : 3} acre-seasons; traditional needs ${report.deed ? report.deed.tradAcres : 6}.</p>`
       );
@@ -770,6 +771,7 @@
       renderToolbar();
       renderGrid();
       renderDeeds();
+      renderVillageLine();
       renderAside();
       renderAutopilot();
       renderEnd();
@@ -965,13 +967,14 @@
           ? `<button type="button" data-move="hold">Don't buy it yet</button>`
           : `<button type="button" data-move="buy">Move to Purchase</button>`;
       return (
-        `<article class="m-deed${pop}${shake}${parcel.spine ? " is-rail" : ""}" draggable="true" data-deed="${esc(parcel.id)}">` +
+        `<article class="m-deed${pop}${shake}${parcel.spine ? " is-rail" : ""}" draggable="true" data-deed="${esc(parcel.id)}" title="Click for a picture of the farm">` +
         `<header class="m-band"><span>Title deed</span><strong>${esc(parcel.name)}</strong>${rail}</header>` +
         `<div class="m-body">` +
         `<p class="m-row"><span>Owner</span><b>${esc(owner)}</b></p>` +
         `<p class="m-row m-acres"><span>Acres</span><b>${parcel.acres || 1}</b></p>` +
         `<p class="m-row m-price"><span>Cost</span><b>$${cost}</b></p>` +
         `<p class="m-note">${esc(note)}</p>` +
+        `<p class="m-look">Click the card to see the farm</p>` +
         `</div>` +
         `<footer class="m-actions">${actions}</footer>` +
         `</article>`
@@ -988,12 +991,13 @@
       const owner = Zox.Parcels.deedOwner(parcel, farm);
       const status = prog.mature ? "Regenerative — chem bill $0" : "Converting, year " + prog.year + " of 5";
       return (
-        `<article class="m-deed is-yours">` +
+        `<article class="m-deed is-yours" data-deed="${esc(parcel.id)}" title="Click for a picture of the farm">` +
         `<header class="m-band"><span>Title deed</span><strong>${esc(farm.name)}</strong></header>` +
         `<div class="m-body">` +
         `<p class="m-row"><span>Owner</span><b>${esc(owner)}</b></p>` +
         `<p class="m-row m-acres"><span>Acres</span><b>${parcel.acres || 1}</b></p>` +
         `<p class="m-row"><span>Status</span><b>${esc(status)}</b></p>` +
+        `<p class="m-look">Click the card to see the farm</p>` +
         `</div>` +
         `<footer class="m-actions"><button type="button" data-walk="${esc(farm.id)}">Walk this farm</button></footer>` +
         `</article>`
@@ -1019,7 +1023,7 @@
             ? "Waiting on apartment rent"
             : "On the table";
       box.innerHTML =
-        `<article class="m-deed is-spotlight${card.affordable === false ? " is-wait" : ""}" data-deed="${esc(card.id)}">` +
+        `<article class="m-deed is-spotlight${card.affordable === false ? " is-wait" : ""}" data-deed="${esc(card.id)}" title="Click for a picture of the farm">` +
         `<header class="m-band" style="background:${esc(card.band)};color:${esc(card.ink)}">` +
         `<span>Title deed</span><strong>${esc(card.name)}</strong>` +
         `<em class="m-rail">${esc(card.region)} group</em>` +
@@ -1090,6 +1094,7 @@
       const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
       if (kind === "announce") return P.announce || 900;
       if (kind === "village") return P.village || 360;
+      if (kind === "sell") return P.sell || 520;
       if (kind === "rail") return P.rail || 200;
       if (kind === "compost") return P.compost || 40;
       if (firstCard) return P.card || 420;
@@ -1203,6 +1208,137 @@
       flash("");
       render();
       kickAutopilot();
+    }
+
+    function stageWord(stage) {
+      if (stage === "framing") return "Framing";
+      if (stage === "open") return "Open";
+      if (stage === "site") return "Site";
+      return "Not started";
+    }
+
+    function renderVillageLine() {
+      const box = el("village-cards");
+      const econ = el("village-econ");
+      const line = el("village-line");
+      if (!box || !Zox.Sim.corridorVillages) return;
+      const world = ui.view === "world";
+      if (line) line.hidden = !world;
+      if (!world) return;
+      const spec = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
+      const cost = Zox.BUILDINGS.village.cost;
+      const books = ui.state.villageBooks || { sales: 0, saleCash: 0, lease: 0 };
+      const stops = Zox.Sim.corridorVillages(ui.state);
+      if (econ) {
+        econ.textContent =
+          "Build $" +
+          cost +
+          " · lease $" +
+          spec.lease +
+          "/season once open · sell $" +
+          spec.sale +
+          ". Collected lease $" +
+          (books.lease || 0) +
+          " · sales $" +
+          (books.saleCash || 0) +
+          " (" +
+          (books.sales || 0) +
+          ").";
+      }
+      const focus = ui.state.autopilot && ui.state.autopilot.focusId;
+      let html = "";
+      for (let i = 0; i < stops.length; i++) {
+        const stop = stops[i];
+        const hot = focus && focus === stop.parcelId ? " is-focus" : "";
+        const stageCls = stop.sold ? " is-sold" : stop.stage ? " is-" + stop.stage : "";
+        let detail;
+        let button;
+        if (stop.action === "need-deed") {
+          detail = "Buy this stop's deed first. The village book runs beside the rail.";
+          button = `<button type="button" disabled>Need the deed</button>`;
+        } else if (stop.action === "converting") {
+          detail = "Converting, year " + stop.year + " of 5. Fund it when the soil is regenerative.";
+          button = `<button type="button" disabled>Year ${stop.year}/5</button>`;
+        } else if (stop.action === "fund") {
+          detail = "Regenerative stop. Fund the build. Site, then framing, then open.";
+          const broke = ui.state.money < stop.cost || ui.state.status !== "playing" || ui.apOn;
+          button =
+            `<button type="button" data-fund-village="${esc(stop.parcelId)}"${broke ? " disabled" : ""}>` +
+            (ui.apOn ? "Autopilot" : "Fund · $" + stop.cost) +
+            `</button>`;
+        } else if (stop.action === "building") {
+          detail = stageWord(stop.stage) + " this season. It opens on the corridor before the rail is laid.";
+          button = `<button type="button" disabled>${stageWord(stop.stage)}</button>`;
+        } else if (stop.action === "sell") {
+          detail = "Open. Lease $" + stop.lease + " each season, or sell for $" + stop.sale + ". Station stays.";
+          button =
+            `<button type="button" data-sell-village="${esc(stop.farmId)}"${ui.apOn || ui.state.status !== "playing" ? " disabled" : ""}>` +
+            (ui.apOn ? "Open · lease $" + stop.lease : "Sell · $" + stop.sale) +
+            `</button>`;
+        } else {
+          detail = "Sold. Lease stopped. The station stays on the line.";
+          button = `<button type="button" disabled>Sold</button>`;
+        }
+        const art = Zox.Render.villageStageSVG ? Zox.Render.villageStageSVG(stop.stage, stop.sold) : "";
+        html +=
+          `<article class="v-card${stageCls}${hot}">` +
+          `<header><span>Stop</span><strong>${esc(stop.name)}</strong></header>` +
+          art +
+          `<p class="v-stage-label">${esc(stageWord(stop.stage))}</p>` +
+          `<p class="v-econ">Build $${stop.cost} · Lease $${stop.lease} · Sale $${stop.sale}</p>` +
+          `<p class="v-detail">${esc(detail)}</p>` +
+          button +
+          `</article>`;
+      }
+      box.innerHTML = html;
+    }
+
+    function openFarmPhoto(parcelId) {
+      const parcel = Zox.Sim.getParcel(parcelId);
+      const veil = el("farm-photo");
+      if (!parcel || !veil) return;
+      const farm = Zox.Sim.getFarmByParcel(ui.state, parcelId);
+      const owner = Zox.Parcels.deedOwner(parcel, farm);
+      const prog = farm ? Zox.Sim.farmProgress(farm) : null;
+      let stageKey = "wild";
+      let stageLabel = "For sale — not converting yet";
+      if (prog && prog.mature) {
+        stageKey = "regen";
+        stageLabel = "Regenerative";
+      } else if (prog) {
+        stageKey = "y" + prog.year;
+        stageLabel = "Converting, year " + prog.year + " of 5";
+      }
+      const region = Zox.regionLook ? Zox.regionLook(parcel.name) : { id: "Corridor" };
+      const art = el("farm-photo-art");
+      if (art && Zox.Render.farmPortrait) {
+        art.innerHTML = Zox.Render.farmPortrait({
+          id: parcel.id,
+          name: parcel.name,
+          owner: owner,
+          stage: stageKey,
+          spine: !!parcel.spine,
+        });
+      }
+      const title = el("farm-photo-title");
+      if (title) title.textContent = parcel.name;
+      const cap = el("farm-photo-caption");
+      if (cap) {
+        cap.textContent =
+          owner +
+          " · " +
+          (parcel.acres || 1) +
+          " acre · " +
+          (region.id || "Corridor") +
+          " · " +
+          stageLabel;
+      }
+      veil.hidden = false;
+    }
+
+    function closeFarmPhoto() {
+      const veil = el("farm-photo");
+      if (veil) veil.hidden = true;
     }
 
     function renderDeeds() {
@@ -1581,6 +1717,7 @@
             e.preventDefault();
             return;
           }
+          ui.suppressPhoto = true;
           ui.dragId = card.getAttribute("data-deed");
           e.dataTransfer.setData("text/plain", ui.dragId);
           e.dataTransfer.effectAllowed = "move";
@@ -1588,6 +1725,8 @@
         });
         deedBoard.addEventListener("dragend", () => {
           ui.dragId = "";
+          if (ui.suppressPhoto) ui.justDragged = true;
+          ui.suppressPhoto = false;
           const marked = deedBoard.querySelectorAll(".is-dragging, .is-over");
           for (let i = 0; i < marked.length; i++) marked[i].classList.remove("is-dragging", "is-over");
         });
@@ -1614,7 +1753,47 @@
             return;
           }
           const walk = e.target.closest("[data-walk]");
-          if (walk) enterFarm(walk.getAttribute("data-walk"), false);
+          if (walk) {
+            enterFarm(walk.getAttribute("data-walk"), false);
+            return;
+          }
+          if (e.target.closest("button")) return;
+          const card = e.target.closest(".m-deed");
+          if (!card) return;
+          if (ui.justDragged) {
+            ui.justDragged = false;
+            return;
+          }
+          const id = card.getAttribute("data-deed");
+          if (id) openFarmPhoto(id);
+        });
+      }
+      const villageLine = el("village-line");
+      if (villageLine) {
+        villageLine.addEventListener("click", (e) => {
+          const fund = e.target.closest("[data-fund-village]");
+          if (fund) {
+            if (ui.apOn) {
+              flash("Autopilot is funding the villages.");
+              return;
+            }
+            const res = Zox.Sim.fundStopVillage(ui.state, fund.getAttribute("data-fund-village"));
+            ui.boardKey = "";
+            flash(res.ok ? "Site work started. Next season the village frames, then it opens." : res.why);
+            render();
+            return;
+          }
+          const sell = e.target.closest("[data-sell-village]");
+          if (sell) {
+            if (ui.apOn) {
+              flash("Autopilot handles the village sale.");
+              return;
+            }
+            const res = Zox.Sim.sellVillage(ui.state, sell.getAttribute("data-sell-village"));
+            ui.boardKey = "";
+            flash(res.ok ? "Sold for $" + res.price + ". The station stays. Lease stops." : res.why);
+            render();
+          }
         });
       }
       const deedConfirm = el("deed-confirm");
@@ -1691,6 +1870,14 @@
       el("farm-card").addEventListener("click", (e) => {
         if (e.target.id === "farm-card") closeFarmModels();
       });
+      const farmPhoto = el("farm-photo");
+      if (farmPhoto) {
+        farmPhoto.addEventListener("click", (e) => {
+          if (e.target.id === "farm-photo") closeFarmPhoto();
+        });
+      }
+      const farmPhotoClose = el("farm-photo-close");
+      if (farmPhotoClose) farmPhotoClose.addEventListener("click", closeFarmPhoto);
       document.addEventListener("click", (e) => {
         if (e.target.closest("[data-open-models]")) {
           openFarmModels();
@@ -1703,6 +1890,11 @@
 
       document.addEventListener("keydown", (e) => {
         if (e.target && ["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+        if (e.key === "Escape" && el("farm-photo") && !el("farm-photo").hidden) {
+          closeFarmPhoto();
+          e.preventDefault();
+          return;
+        }
         if (e.key === "Escape" && !el("farm-card").hidden) {
           closeFarmModels();
           e.preventDefault();
@@ -1713,7 +1905,7 @@
           e.preventDefault();
           return;
         }
-        if (!el("intro").hidden || !el("end-card").hidden || !el("farm-card").hidden || (el("season-win") && !el("season-win").hidden)) return;
+        if (!el("intro").hidden || !el("end-card").hidden || !el("farm-card").hidden || (el("farm-photo") && !el("farm-photo").hidden) || (el("season-win") && !el("season-win").hidden)) return;
         if (e.key === "b" || e.key === "B") {
           if (ui.view === "farm") {
             leaveFarm();

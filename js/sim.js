@@ -588,6 +588,7 @@
       health: state.health,
       incomeNet: inc.net || 0,
       graze: inc.graze || 0,
+      villageLease: inc.villageLease || 0,
       ledgerTrad: trad.ledger,
       ledgerRegen: regen.ledger,
       ledgerYours: yours ? yours.ledger : null,
@@ -600,7 +601,113 @@
   }
 
   function emptyIncome() {
-    return { crops: 0, cropGross: 0, inputs: 0, graze: 0, apartments: 0, credits: 0, other: 0, upkeep: 0, net: 0 };
+    return {
+      crops: 0,
+      cropGross: 0,
+      inputs: 0,
+      graze: 0,
+      apartments: 0,
+      credits: 0,
+      other: 0,
+      upkeep: 0,
+      villageLease: 0,
+      net: 0,
+    };
+  }
+
+  function worksSpec() {
+    return Zox.VILLAGE_WORKS || { lease: 6, sale: 84, stages: ["site", "framing", "open"] };
+  }
+
+  function ensureVillageBooks(state) {
+    if (!state.villageBooks) state.villageBooks = { sales: 0, saleCash: 0, lease: 0 };
+    return state.villageBooks;
+  }
+
+  function openLot(farm) {
+    const tiles = farm.tiles;
+    let grove = null;
+    for (let r = 0; r < tiles.length; r++) {
+      for (let c = 0; c < tiles[r].length; c++) {
+        const t = tiles[r][c];
+        if (t.building || t.landmark === "barn" || t.terrain === "water") continue;
+        if (t.terrain === "meadow") return { r: r, c: c };
+        if (!grove) grove = { r: r, c: c };
+      }
+    }
+    return grove;
+  }
+
+  function advanceVillageWorks(state) {
+    const farms = state.farms || [];
+    for (let i = 0; i < farms.length; i++) {
+      const farm = farms[i];
+      const n = Zox.Map.tilesOf(farm.tiles, "village").length;
+      if (!n) {
+        farm.villageWorks = null;
+        continue;
+      }
+      if (!farm.villageWorks) {
+        farm.villageWorks = { stage: "site", sold: false };
+        continue;
+      }
+      const w = farm.villageWorks;
+      if (w.stage === "site") w.stage = "framing";
+      else if (w.stage === "framing") w.stage = "open";
+    }
+  }
+
+  function villageLeaseDue(state) {
+    const rate = worksSpec().lease;
+    let total = 0;
+    const farms = state.farms || [];
+    for (let i = 0; i < farms.length; i++) {
+      const farm = farms[i];
+      const w = farm.villageWorks;
+      if (!w || w.sold || w.stage !== "open") continue;
+      if (!Zox.Map.tilesOf(farm.tiles, "village").length) continue;
+      total += rate;
+    }
+    return total;
+  }
+
+  function corridorVillages(state) {
+    const spine = spineParcels();
+    const spec = worksSpec();
+    const cost = Zox.BUILDINGS.village.cost;
+    const out = [];
+    for (let i = 0; i < spine.length; i++) {
+      const parcel = spine[i];
+      const farm = getFarmByParcel(state, parcel.id);
+      const mature = farmMature(farm);
+      const has = !!(farm && Zox.Map.tilesOf(farm.tiles, "village").length);
+      const w = farm && farm.villageWorks;
+      const stage = has ? (w && w.stage) || "site" : "";
+      const sold = !!(w && w.sold);
+      let action = "wait";
+      if (!farm) action = "need-deed";
+      else if (!mature) action = "converting";
+      else if (!has) action = "fund";
+      else if (stage !== "open") action = "building";
+      else if (!sold) action = "sell";
+      else action = "sold";
+      const prog = farm ? farmProgress(farm) : null;
+      out.push({
+        parcelId: parcel.id,
+        farmId: farm ? farm.id : "",
+        name: parcel.mapLabel || parcel.name,
+        fullName: parcel.name,
+        stage: stage,
+        sold: sold,
+        action: action,
+        year: prog ? prog.year : 0,
+        mature: mature,
+        cost: cost,
+        lease: spec.lease,
+        sale: spec.sale,
+      });
+    }
+    return out;
   }
 
   /**
@@ -666,6 +773,7 @@
       health: Zox.START.health,
       carbonSeason: Zox.START.carbonSeason || 0,
       carbonTotal: Zox.START.carbonTotal || 0,
+      villageBooks: { sales: 0, saleCash: 0, lease: 0 },
       energySupply: 0,
       energyDemand: 0,
       population: 0,
@@ -823,10 +931,77 @@
       compost: "The heap is working on " + farm.name + ". It does not smell like a lecture.",
       rail: "Rail in the grass on " + farm.name + ". Link another tile and the far lots join the talk.",
       park: "An orchard on " + farm.name + " for Sunday. Someone will bring a pie.",
-      village: "An eco-village rises near " + farm.name + " — health and rail readiness climb. Villages + farms light the corridor.",
+      village:
+        "Eco-village at " +
+        farm.name +
+        " — site work starts ($" +
+        def.cost +
+        "). Next seasons: framing, then open. Open villages lease $" +
+        worksSpec().lease +
+        " a season or sell for $" +
+        worksSpec().sale +
+        ". The station stays. The rail is not built yet.",
     };
+    if (buildingId === "village" && !farm.villageWorks) {
+      farm.villageWorks = { stage: "site", sold: false };
+    }
     pushLog(state, notes[buildingId] || "Built on " + farm.name + ".");
     return { ok: true, why: "" };
+  }
+
+  function fundStopVillage(state, parcelId) {
+    const parcel = getParcel(parcelId);
+    if (!parcel || !parcel.spine) {
+      return { ok: false, why: "Eco-villages on the corridor go at the named rail stops." };
+    }
+    const farm = getFarmByParcel(state, parcelId);
+    if (!farm) return { ok: false, why: "Buy " + parcel.name + " first. The village waits on that future stop." };
+    if (!farmMature(farm)) {
+      const prog = farmProgress(farm);
+      return {
+        ok: false,
+        why: farm.name + " is still converting (year " + prog.year + " of 5). The eco-village waits for regenerative ground.",
+      };
+    }
+    if (Zox.Map.tilesOf(farm.tiles, "village").length) {
+      return { ok: false, why: "A village is already underway at " + farm.name + "." };
+    }
+    const lot = openLot(farm);
+    if (!lot) return { ok: false, why: "No open lot on " + farm.name + "." };
+    return place(state, lot.r, lot.c, "village", farm.id);
+  }
+
+  function sellVillage(state, farmId) {
+    const farm = getFarm(state, farmId);
+    if (!farm) return { ok: false, why: "That farm is not on the books." };
+    if (!Zox.Map.tilesOf(farm.tiles, "village").length) {
+      return { ok: false, why: "No eco-village at " + farm.name + "." };
+    }
+    if (!farm.villageWorks) farm.villageWorks = { stage: "site", sold: false };
+    const w = farm.villageWorks;
+    if (w.stage !== "open") {
+      const word = w.stage === "framing" ? "framing" : "site work";
+      return { ok: false, why: farm.name + " is still in " + word + ". Sell it once the village is open." };
+    }
+    if (w.sold) return { ok: false, why: "Already sold. The station stays at " + farm.name + ". The lease does not." };
+    const price = worksSpec().sale;
+    w.sold = true;
+    w.sale = price;
+    state.money = Math.round(state.money + price);
+    const books = ensureVillageBooks(state);
+    books.sales += 1;
+    books.saleCash += price;
+    pushLog(
+      state,
+      "Sold the open eco-village at " +
+        farm.name +
+        " for $" +
+        price +
+        ". Build was $" +
+        Zox.BUILDINGS.village.cost +
+        ". The station stays on the line. Lease stops. Upkeep stays."
+    );
+    return { ok: true, why: "", price: price };
   }
 
   function canClear(state, r, c, farmId) {
@@ -854,7 +1029,9 @@
       return { ok: true, why: "" };
     }
     const refund = Math.floor(def.cost * 0.5);
+    const wasVillage = tile.building === "village";
     tile.building = null;
+    if (wasVillage && !Zox.Map.tilesOf(farm.tiles, "village").length) farm.villageWorks = null;
     state.money += refund;
     recountEnergyAndPeople(state);
     pushLog(state, "Cleared a " + def.short.toLowerCase() + " on " + farm.name + ". $" + refund + " back in the jar.");
@@ -875,8 +1052,17 @@
         acres + " acre" + (acres === 1 ? "" : "s"),
         books.mature ? "Zox regenerative — no chem bill." : books.label,
         "Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net,
-        "Open the deed card and walk this farm. Improvements stay on its board.",
+        "Open the deed card and walk this farm. Click the card for a picture. Improvements stay on its board.",
       ];
+      if (farm.villageWorks && Zox.Map.tilesOf(farm.tiles, "village").length) {
+        const spec = worksSpec();
+        const w = farm.villageWorks;
+        if (w.sold) bits.push("Eco-village sold for $" + (w.sale || spec.sale) + ". Station stays. Lease stopped.");
+        else if (w.stage === "open") bits.push("Eco-village open. Lease $" + spec.lease + " a season, or sell for $" + spec.sale + ".");
+        else bits.push("Eco-village under construction: " + (w.stage === "framing" ? "framing" : "site") + ". Next it " + (w.stage === "framing" ? "opens" : "frames") + ".");
+      } else if (parcel.spine && books.mature) {
+        bits.push("Named stop. Fund an eco-village here — $" + Zox.BUILDINGS.village.cost + " — then site, framing, open.");
+      }
       return { parcelId, parcel, farm, title: farm.name, lines: bits, owned: true };
     }
     return {
@@ -1078,6 +1264,8 @@
     const rails = buildingsOf(state, "rail");
     const groves = standingGroves(state);
 
+    advanceVillageWorks(state);
+
     const justMatured = [];
     const seasonSnaps = [];
     for (let i = 0; i < state.farms.length; i++) {
@@ -1206,7 +1394,13 @@
       streams.credits += villageCount;
     }
 
-    streams.net = Math.round(streams.crops + streams.graze + streams.apartments + streams.credits + streams.other - streams.upkeep);
+    const lease = villageLeaseDue(state);
+    streams.villageLease = lease;
+    if (lease) ensureVillageBooks(state).lease += lease;
+
+    streams.net = Math.round(
+      streams.crops + streams.graze + streams.apartments + streams.credits + streams.other + lease - streams.upkeep
+    );
     state.money = Math.round(state.money + streams.net);
     state.waste = clamp(Math.round(state.waste + wasteIn - wasteOut), 0, 100);
 
@@ -1408,6 +1602,9 @@
     decadeInfo,
     seasonReportCard,
     countVillages,
+    corridorVillages,
+    fundStopVillage,
+    sellVillage,
     getFarm,
     getFarmByParcel,
     getParcel,

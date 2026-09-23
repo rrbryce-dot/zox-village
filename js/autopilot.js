@@ -19,7 +19,7 @@
     farms:
       "Phase 1 is starting. Buying regenerative farmland one title deed at a time, Detroit toward Jersey City. No checkpoints.",
     villages:
-      "Phase 2 is starting. Eco-villages are going in at the future rail stops now. Farm deeds are still being bought.",
+      "Phase 2 is starting. Eco-villages are going in at the future rail stops now — site, then framing, then open. An open village leases into the jar or sells. Farm deeds are still being bought. The rail is not built yet.",
     row:
       "Phase 3 is starting. Farms and villages are underway. Buying the remaining right-of-way the railway will cross.",
     rail: "Phase 4 is starting. Building the rail line from Detroit to Jersey City.",
@@ -61,6 +61,7 @@
     stage: 200,
     buy: 180,
     village: 360,
+    sell: 520,
     rail: 200,
     season: 80,
     compost: 40,
@@ -320,6 +321,7 @@
         phases: [],
         cashWaits: 0,
         firstVillageSeason: null,
+        soldOne: false,
         regenDoneSeason: null,
         rowDoneSeason: null,
         railDoneSeason: null,
@@ -379,6 +381,42 @@
         return { farm: farm, lot: lot, stop: plan.stops[i] };
       }
       return null;
+    }
+
+    function openUnsold() {
+      for (let i = 0; i < plan.stops.length; i++) {
+        const farm = stopFarm(plan.stops[i]);
+        if (!farm || !hasVillage(farm) || !farm.villageWorks) continue;
+        if (farm.villageWorks.stage === "open" && !farm.villageWorks.sold) {
+          return { farm: farm, stop: plan.stops[i] };
+        }
+      }
+      return null;
+    }
+
+    function sellDecision() {
+      if (mem.soldOne || mem.stats.soldOne) return null;
+      const sale = openUnsold();
+      if (!sale) return null;
+      const spec = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
+      const cost = Zox.BUILDINGS.village.cost;
+      const stopName = sale.stop.mapLabel || sale.stop.name;
+      return {
+        kind: "sell",
+        affordable: true,
+        parcelId: sale.farm.parcelId,
+        farmId: sale.farm.id,
+        note:
+          "Selling the open eco-village at " +
+          stopName +
+          " for $" +
+          spec.sale +
+          ". It cost $" +
+          cost +
+          " to build and leased $" +
+          spec.lease +
+          " a season while open. The station stays on the line. The rail is still a later phase.",
+      };
     }
 
     function allVillages() {
@@ -448,6 +486,9 @@
       state.autopilot.focusId = (decision && decision.parcelId) || "";
       state.autopilot.card = (decision && decision.card) || null;
       if (decision && decision.kind === "announce") state.autopilot.note = decision.text;
+      else if (decision && (decision.kind === "sell" || decision.kind === "village") && decision.note) {
+        state.autopilot.note = decision.note;
+      }
     }
 
     function nextRegen() {
@@ -537,6 +578,11 @@
 
       if (rv && !preferFarm) {
         if (state.money < Zox.BUILDINGS.village.cost) {
+          const shortSale = sellDecision();
+          if (shortSale) {
+            paint(shortSale);
+            return shortSale;
+          }
           if (regenReady && canLand && state.money >= farmCost) {
             const d = buyDecision(regen, true);
             paint(d);
@@ -563,16 +609,34 @@
           paint(d);
           return d;
         }
+        const spec = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
         const d = {
           kind: "village",
           affordable: true,
           parcelId: rv.farm.parcelId,
           farmId: rv.farm.id,
           lot: rv.lot,
-          note: "Eco-village at the future " + (rv.stop.mapLabel || rv.stop.name) + " stop. The rail is still not built.",
+          note:
+            "Funding the eco-village at the future " +
+            (rv.stop.mapLabel || rv.stop.name) +
+            " stop. Build $" +
+            Zox.BUILDINGS.village.cost +
+            ". Site, then framing, then open. Once open it leases $" +
+            spec.lease +
+            " a season or sells for $" +
+            spec.sale +
+            ". The rail is still not built.",
         };
         paint(d);
         return d;
+      }
+
+      if (!preferFarm && !(rv && state.money >= Zox.BUILDINGS.village.cost)) {
+        const sale = sellDecision();
+        if (sale) {
+          paint(sale);
+          return sale;
+        }
       }
 
       if (regen && canLand && mem.phase !== "rail") {
@@ -752,6 +816,16 @@
         if (mem.stats.firstVillageSeason == null) mem.stats.firstVillageSeason = state.season;
         return d;
       }
+      if (d.kind === "sell") {
+        const res = Zox.Sim.sellVillage(state, d.farmId);
+        mem.soldOne = true;
+        mem.stats.soldOne = true;
+        if (!res.ok && state.log) {
+          state.log.unshift({ season: state.season, text: res.why || "Village sale did not clear." });
+          if (state.log.length > 10) state.log.length = 10;
+        }
+        return d;
+      }
       if (d.kind === "compost") {
         Zox.Sim.place(state, d.lot.r, d.lot.c, "compost", d.farmId);
         mem.compostThisSeason += 1;
@@ -806,6 +880,9 @@
         status: state.status,
         commits: mem.stats.commits,
         builtRail: state.builtRail,
+        villageSales: (state.villageBooks && state.villageBooks.sales) || 0,
+        villageSaleCash: (state.villageBooks && state.villageBooks.saleCash) || 0,
+        villageLease: (state.villageBooks && state.villageBooks.lease) || 0,
       };
     }
 

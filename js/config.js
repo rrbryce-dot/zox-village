@@ -88,9 +88,46 @@
     nutritionBoost: 4,
     railBoost: 1,
     requiresMature: true,
-    hint: "On a mature regen farm — the porch-book village. Adds health and nutrition, and a station on the green rail. Villages plus farms carry Detroit to Jersey City.",
+    hint: "On a mature regen farm at a named rail stop — fund it from the corridor strip, or place it on the farm board. It rises site, then framing, then open. An open village pays lease into the jar, or you can sell it. The station stays. Health, nutrition, and the future stop count either way. The rail itself comes later.",
   },
 };
+
+  /**
+   * Corridor eco-villages. Cost is BUILDINGS.village.cost.
+   * One season on site, one on framing, then open.
+   * Open villages lease each season until sold. Sale is a lump sum; the station stays.
+   */
+  const VILLAGE_WORKS = {
+    stages: ["site", "framing", "open"],
+    lease: 6,
+    sale: 84,
+  };
+
+  const REGION_LOOKS = [
+    { id: "Ashtabula", sky: "#d5e6f6", hill: "#5f7a40", barn: "#7d94b8" },
+    { id: "Youngstown", sky: "#f6d0cb", hill: "#6a7a3e", barn: "#c4493a" },
+    { id: "Harrisburg", sky: "#d4e4f6", hill: "#4f7344", barn: "#2a6fbf" },
+    { id: "Pittsburgh", sky: "#f6ebae", hill: "#5c7038", barn: "#c4a017" },
+    { id: "Sandusky", sky: "#f7c6e4", hill: "#6a8a48", barn: "#d946a6" },
+    { id: "Princeton", sky: "#e7e2d6", hill: "#4e6840", barn: "#3a3a3a" },
+    { id: "Monroe", sky: "#f6d7a2", hill: "#7d9148", barn: "#8b5a2b" },
+    { id: "Toledo", sky: "#c5e4f5", hill: "#6e8f55", barn: "#3d8eb0" },
+    { id: "Altoona", sky: "#d7efcf", hill: "#3f7a40", barn: "#1f9d55" },
+    { id: "Easton", sky: "#e6d4f2", hill: "#5a7048", barn: "#7d4ea3" },
+    { id: "Ontario", sky: "#ece7df", hill: "#6a7058", barn: "#8a8478" },
+    { id: "Erie", sky: "#f8c48a", hill: "#6b8440", barn: "#e07a1f" },
+  ];
+
+  function regionLook(name) {
+    const n = String(name || "");
+    const keys = REGION_LOOKS.slice().sort(function (a, b) {
+      return b.id.length - a.id.length;
+    });
+    for (let i = 0; i < keys.length; i++) {
+      if (n.indexOf(keys[i].id) === 0) return keys[i];
+    }
+    return REGION_LOOKS[REGION_LOOKS.length - 1];
+  }
 
   const TOOLS = [
     { id: "inspect", name: "Look", kind: "tool", hint: "Read a tile. No cost." },
@@ -413,7 +450,7 @@
       { text: "NYC", x: 954, y: 356, anchor: "end", kind: "minor" },
     ],
     goalCopy:
-      "Long-term goal: build the green rail from Detroit to Jersey City across four decades. Every farmland square can be bought — pull its title deed, then move the card to Purchase when the jar can cover it. Five seasons convert a farm; mature farms on the named rail squares light the line solid.",
+      "Long-term goal: build the green rail from Detroit to Jersey City across four decades. Every farmland square can be bought — pull its title deed, then move the card to Purchase when the jar can cover it. Five seasons convert a farm; mature farms on the named rail squares light the line solid. Eco-villages at those stops rise from site to framing to open, then lease or sell.",
   };
 
   const COPY = {
@@ -423,7 +460,7 @@
     intro: [
       "Song royalties already bought a green building in Long Island City. That city rent lands every season — you do not place it on this map.",
       "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. Every farmland square on the mosaic is for sale. The dashed green line is the future rail.",
-      "Loop: click a square → its title deed pops → move the card to Purchase when apartment rent and crop net can cover it → walk the farm → five-season regen. Mature farms sequester carbon. Named squares along the rail light solid. Eco-villages boost health and put stations on the line.",
+      "Loop: click a square → its title deed pops → move the card to Purchase when apartment rent and crop net can cover it → click the card to see the farm → walk the fields → five-season regen. Mature farms sequester carbon. Named squares along the rail light solid. At those stops, fund an eco-village: site, then framing, then open. An open village leases into the jar or can be sold. The station stays. The rail is built later.",
       "Win by sequestering enough carbon in a single season and raising population health on 6× regenerative nutrition. The corridor is four decades (20 seasons). Decade 1 converts soil; the carbon gate needs a run of mature acres after that. Stay in the black.",
     ],
     win: "The soil locked enough carbon this season, and regenerative food made people healthier — 6× the nutrition of the chem model. The rail is a longer story, but this corridor is a village.",
@@ -434,6 +471,8 @@
   };
 
   Zox.BUILDINGS = BUILDINGS;
+  Zox.VILLAGE_WORKS = VILLAGE_WORKS;
+  Zox.regionLook = regionLook;
   Zox.TOOLS = TOOLS;
   Zox.WORLD_TOOLS = WORLD_TOOLS;
   Zox.FARM_TOOLS = FARM_TOOLS;
