@@ -3033,7 +3033,9 @@ h1 {
 .corridor-map image,
 .corridor-map .rail-case,
 .corridor-map .rail-future,
-.corridor-map .rail-lit {
+.corridor-map .rail-lit,
+.corridor-map .rail-built,
+.corridor-map .stop-ring {
   pointer-events: none;
 }
 .corridor-map .parcel-lot {
@@ -3089,6 +3091,104 @@ h1 {
 .corridor-map .parcel-lot.is-picked {
   stroke: #ffffff;
   stroke-width: 1.5;
+}
+.corridor-map .parcel-lot.is-future-stop {
+  stroke: #ffe36a;
+  stroke-width: 1.5;
+  stroke-dasharray: 2.1 1.2;
+}
+.corridor-map .parcel-lot.is-focus {
+  stroke: #ffffff !important;
+  stroke-width: 2.3 !important;
+}
+.corridor-map .stop-ring {
+  fill: none;
+  stroke: #ffe36a;
+  stroke-width: 1.35;
+  stroke-dasharray: 2.4 1.5;
+}
+.corridor-map .stop-ring.is-built {
+  stroke: #06210f;
+  fill: rgba(220, 255, 115, 0.35);
+  stroke-dasharray: none;
+}
+.corridor-map .rail-built {
+  stroke: #dcff73;
+  stroke-width: 6.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px #f3ffc4);
+}
+.autopilot-bar {
+  background: #14301f;
+  color: #f6f1e4;
+  border: 2px solid #e2c56a;
+  border-radius: 10px;
+  padding: 8px 12px 9px;
+  margin: 0 0 6px;
+}
+.autopilot-bar[hidden] { display: none; }
+.autopilot-phase {
+  margin: 0;
+  font-family: Georgia, "Palatino Linotype", Palatino, serif;
+  font-size: 1.28rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.autopilot-progress {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #d6f5c8;
+}
+.autopilot-note {
+  margin: 4px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  max-width: 78rem;
+}
+.deed-board.is-auto .deed-cols,
+.deed-board.is-auto #deed-owned { display: none; }
+.deed-spotlight {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px;
+}
+.deed-spotlight[hidden] { display: none !important; }
+.m-deed.is-spotlight {
+  width: min(440px, 100%);
+  max-width: 440px;
+  cursor: default;
+}
+.m-deed.is-spotlight .m-why {
+  margin: 8px 0 4px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: #241e16;
+}
+.m-deed.is-spotlight .m-why span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b2a1a;
+}
+.m-deed.is-spotlight .m-beat {
+  margin: 0 0 8px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1f5c30;
+}
+.m-deed.is-spotlight.is-wait .m-beat { color: #8d1d1d; }
+#autopilot[aria-pressed="true"] {
+  background: #8d1d1d;
+  border-color: #5c100c;
 }
 @media (max-width: 1180px) {
   .deed-board { flex-basis: 220px; }

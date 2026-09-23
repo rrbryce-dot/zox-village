@@ -61,6 +61,12 @@
       shakeDeed: "",
       deedAlert: "",
       dragId: "",
+      apOn: false,
+      ap: null,
+      apTimer: 0,
+      apBeat: "",
+      apShown: "",
+      apStartedAt: 0,
     };
 
     function currentFarm() {
@@ -78,17 +84,25 @@
       bar.hidden = !msg;
     }
 
+    function seasonCap() {
+      return ui.state.horizonSeasons || Zox.GOAL.seasons;
+    }
+
     function seasonLabel() {
       const s = ui.state.season;
-      if (s > Zox.GOAL.seasons) return "After four decades · year " + Zox.GOAL.seasons;
-      return Zox.Sim.decadeInfo(s).short;
+      const cap = seasonCap();
+      if (s > cap) {
+        const decades = ui.state.horizonDecades || Zox.GOAL.decades;
+        return "After " + decades + " decades · year " + cap;
+      }
+      return Zox.Sim.decadeInfo(s, ui.state).short;
     }
 
     function renderDecadeTrack() {
       const box = el("decade-track");
       if (!box) return;
-      const playing = Math.min(ui.state.season, Zox.GOAL.seasons);
-      const info = Zox.Sim.decadeInfo(playing);
+      const playing = Math.min(ui.state.season, seasonCap());
+      const info = Zox.Sim.decadeInfo(playing, ui.state);
       const per = info.seasonsPerDecade;
       let html = "";
       for (let d = 1; d <= info.decades; d++) {
@@ -337,13 +351,22 @@
       } else {
         const rail = Zox.Sim.railProgress(ui.state);
         title.textContent = "Corridor map";
-        sub.textContent = rail.ready
-          ? "Green rail lit solid Detroit → Jersey City. Keep the settlement and the circle healthy."
-          : "Click a square for its title deed. Move the card to Purchase when the jar can cover it. " +
-            rail.lit +
-            "/" +
-            rail.need +
-            " rail segments lit.";
+        if (ui.state.builtRail != null) {
+          const laid = ui.state.builtRail || 0;
+          const need = Math.max(1, (Zox.CORRIDOR.railPath || []).length - 1);
+          sub.textContent =
+            laid >= need
+              ? "Autopilot laid the green rail from Detroit to Jersey City."
+              : "The line stays dashed until autopilot builds it. " + laid + "/" + need + " segments laid.";
+        } else {
+          sub.textContent = rail.ready
+            ? "Green rail lit solid Detroit → Jersey City. Keep the settlement and the circle healthy."
+            : "Click a square for its title deed. Move the card to Purchase when the jar can cover it. " +
+              rail.lit +
+              "/" +
+              rail.need +
+              " rail segments lit.";
+        }
         back.hidden = true;
         back.classList.remove("is-hot");
         back.textContent = "Back to map";
@@ -447,7 +470,7 @@
       el("season").textContent = seasonLabel();
       const horizon = el("horizon");
       if (horizon) {
-        const info = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
+        const info = Zox.Sim.decadeInfo(Math.min(ui.state.season, seasonCap()), ui.state);
         const rail = Zox.Sim.railProgress(ui.state);
         const villages = Zox.Sim.countVillages(ui.state);
         horizon.textContent =
@@ -462,7 +485,7 @@
           (villages ? ", " + villages + " village station" + (villages === 1 ? "" : "s") : "") +
           ").";
       }
-      el("next-season").disabled = ui.state.status !== "playing";
+      el("next-season").disabled = ui.state.status !== "playing" || !!ui.apOn;
       const grazePay = (ui.state.farms || []).reduce((sum, f) => {
         const res = Zox.Sim.seasonResolution(f);
         return sum + (res.mature ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting);
@@ -718,7 +741,7 @@
       el("end-body").textContent = ui.state.endReason;
       const rail = Zox.Sim.railProgress(ui.state);
       const when = ui.state.wonOnSeason || Math.max(1, ui.state.season - 1);
-      const info = Zox.Sim.decadeInfo(Math.min(when, Zox.GOAL.seasons));
+      const info = Zox.Sim.decadeInfo(Math.min(when, seasonCap()), ui.state);
       el("end-score").textContent =
         (won ? info.short + " · " : "") +
         "score " +
@@ -748,6 +771,7 @@
       renderGrid();
       renderDeeds();
       renderAside();
+      renderAutopilot();
       renderEnd();
       if (ui.view !== "world") hideParcelTip();
       const farm = currentFarm();
@@ -976,6 +1000,211 @@
       );
     }
 
+    function renderSpotlight() {
+      const box = el("deed-spotlight");
+      const board = el("deed-board");
+      if (board) board.classList.toggle("is-auto", !!ui.apOn || !!(ui.state.autopilot && ui.state.autopilot.complete));
+      if (!box) return;
+      const card = ui.state.autopilot && ui.state.autopilot.card;
+      const show = !!ui.apOn && card;
+      box.hidden = !show;
+      if (!show) {
+        box.innerHTML = "";
+        return;
+      }
+      const beat =
+        ui.apBeat === "stage"
+          ? "Moved to Purchase"
+          : ui.apBeat === "wait" || card.affordable === false
+            ? "Waiting on apartment rent"
+            : "On the table";
+      box.innerHTML =
+        `<article class="m-deed is-spotlight${card.affordable === false ? " is-wait" : ""}" data-deed="${esc(card.id)}">` +
+        `<header class="m-band" style="background:${esc(card.band)};color:${esc(card.ink)}">` +
+        `<span>Title deed</span><strong>${esc(card.name)}</strong>` +
+        `<em class="m-rail">${esc(card.region)} group</em>` +
+        `</header>` +
+        `<div class="m-body">` +
+        `<p class="m-row"><span>Owner</span><b>${esc(card.owner)}</b></p>` +
+        `<p class="m-row m-acres"><span>Acres</span><b>${esc(card.acres)}</b></p>` +
+        `<p class="m-row m-price"><span>Cost</span><b>$${esc(card.cost)}</b></p>` +
+        `<p class="m-why"><span>Why buy</span> ${esc(card.reason)}</p>` +
+        `<p class="m-beat">${esc(beat)}</p>` +
+        `</div>` +
+        `</article>`;
+    }
+
+    function renderAutopilot() {
+      const btn = el("autopilot");
+      const bar = el("autopilot-bar");
+      const running = !!ui.apOn;
+      const ap = ui.state.autopilot;
+      const done = !!(ap && ap.complete);
+      if (btn) {
+        btn.textContent = running ? "Stop Autopilot" : done ? "Autopilot done" : "Start Autopilot";
+        btn.disabled = done && !running;
+        btn.setAttribute("aria-pressed", running ? "true" : "false");
+      }
+      if (bar) {
+        const show = running || done;
+        bar.hidden = !show;
+        if (show && ap) {
+          const phase = el("autopilot-phase");
+          const progress = el("autopilot-progress");
+          const note = el("autopilot-note");
+          if (phase) phase.textContent = ap.label || "";
+          if (progress) progress.textContent = ap.progress || "";
+          if (note) note.textContent = ap.note || "";
+        }
+      }
+      const phaseName = ap && ap.phase ? ap.phase : "";
+      document.documentElement.dataset.apPhase = running || done ? phaseName : "";
+      document.documentElement.dataset.apRunning = running ? "1" : "0";
+      if (cardId()) document.documentElement.dataset.apCard = cardId();
+      else delete document.documentElement.dataset.apCard;
+      renderSpotlight();
+    }
+
+    function cardId() {
+      const card = ui.state.autopilot && ui.state.autopilot.card;
+      return card && card.id ? card.id : "";
+    }
+
+    function stopAutopilot(finished) {
+      ui.apOn = false;
+      if (ui.apTimer) {
+        clearTimeout(ui.apTimer);
+        ui.apTimer = 0;
+      }
+      ui.apBeat = "";
+      if (!finished && ui.state.autopilot) {
+        ui.state.autopilot.on = false;
+        ui.state.autopilotHold = false;
+        ui.state.autopilot.note = "Autopilot stopped. The board is yours again.";
+      }
+      const btn = el("next-season");
+      if (btn) btn.disabled = ui.state.status !== "playing";
+    }
+
+    function autopilotPace(kind, firstCard) {
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      if (kind === "announce") return P.announce || 900;
+      if (kind === "village") return P.village || 360;
+      if (kind === "rail") return P.rail || 200;
+      if (kind === "compost") return P.compost || 40;
+      if (firstCard) return P.card || 420;
+      return P.season || 80;
+    }
+
+    function kickAutopilot() {
+      if (!ui.apOn || !ui.ap) return;
+      const d = ui.ap.peek();
+      if (!d || d.kind === "done") {
+        if (d && ui.ap) ui.ap.commit();
+        stopAutopilot(true);
+        ui.view = "world";
+        ui.farmId = null;
+        ui.boardKey = "";
+        render();
+        if (ui.ap && ui.ap.summary && ui.apStartedAt) {
+          const sum = ui.ap.summary();
+          sum.realMs = Math.round(performance.now() - ui.apStartedAt);
+          ui.apSummary = sum;
+          try {
+            window.__zoxAutopilotSummary = sum;
+          } catch (err) {
+            /* ignore */
+          }
+        }
+        return;
+      }
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      if ((d.kind === "buy" || d.kind === "row") && d.affordable) {
+        if (ui.apBeat !== "show" && ui.apBeat !== "stage") {
+          ui.apBeat = "show";
+          ui.apShown = d.parcelId;
+          ui.view = "world";
+          ui.farmId = null;
+          ui.selected = { parcelId: d.parcelId };
+          ui.boardKey = "";
+          render();
+          ui.apTimer = window.setTimeout(kickAutopilot, P.card || 420);
+          return;
+        }
+        if (ui.apBeat === "show") {
+          ui.apBeat = "stage";
+          render();
+          ui.apTimer = window.setTimeout(kickAutopilot, P.stage || 200);
+          return;
+        }
+        ui.ap.commit();
+        ui.apBeat = "";
+        ui.selected = { parcelId: d.parcelId };
+        ui.boardKey = "";
+        render();
+        ui.apTimer = window.setTimeout(kickAutopilot, P.buy || 180);
+        return;
+      }
+      const firstCard = (d.kind === "buy" || d.kind === "row") && ui.apShown !== d.parcelId;
+      if (d.kind === "buy" || d.kind === "row") {
+        ui.apShown = d.parcelId;
+        ui.apBeat = "wait";
+        ui.selected = { parcelId: d.parcelId };
+      } else {
+        ui.apBeat = "";
+      }
+      ui.view = "world";
+      ui.farmId = null;
+      ui.boardKey = "";
+      render();
+      const wait = autopilotPace(d.kind, firstCard);
+      ui.apTimer = window.setTimeout(function () {
+        if (!ui.apOn || !ui.ap) return;
+        ui.ap.commit();
+        ui.apBeat = "";
+        ui.boardKey = "";
+        render();
+        kickAutopilot();
+      }, wait);
+    }
+
+    function startAutopilot() {
+      if (ui.apOn) {
+        stopAutopilot(false);
+        render();
+        return;
+      }
+      if (ui.state.autopilot && ui.state.autopilot.complete) return;
+      if (ui.state.status !== "playing") return;
+      const intro = el("intro");
+      if (intro) intro.hidden = true;
+      hideSeasonWins();
+      if (ui.winTimer) {
+        clearTimeout(ui.winTimer);
+        ui.winTimer = 0;
+      }
+      ui.view = "world";
+      ui.farmId = null;
+      ui.tool = "farm";
+      ui.deeds = [];
+      ui.ownedFocus = null;
+      ui.freshDeed = "";
+      ui.boardKey = "";
+      ui.ap = Zox.Autopilot.create(ui.state);
+      ui.apOn = true;
+      ui.apBeat = "";
+      ui.apShown = "";
+      ui.apStartedAt = performance.now();
+      try {
+        window.__zoxAutopilot = ui.ap;
+      } catch (err) {
+        /* ignore */
+      }
+      flash("");
+      render();
+      kickAutopilot();
+    }
+
     function renderDeeds() {
       const board = el("deed-board");
       if (!board) return;
@@ -1159,11 +1388,19 @@
     }
 
     function actOnParcel(parcelId) {
+      if (ui.apOn) {
+        flash("Autopilot is buying the deeds. The corridor does not need a click.");
+        return;
+      }
       hideParcelTip();
       addDeed(parcelId);
     }
 
     function actOnTile(r, c) {
+      if (ui.apOn) {
+        flash("Autopilot is placing the villages and the rail.");
+        return;
+      }
       ui.selected = { r, c };
       const farmId = ui.farmId;
       if (ui.tool === "inspect") {
@@ -1236,6 +1473,7 @@
     }
 
     function nextSeason() {
+      if (ui.apOn) return;
       const res = Zox.Sim.runSeason(ui.state);
       flash(res.ok ? "" : res.why);
       if (res.ok) {
@@ -1250,7 +1488,9 @@
         hideSeasonWins();
         render();
         // Let the herd show on the farm before the score card
-        window.setTimeout(function () {
+        ui.winTimer = window.setTimeout(function () {
+          ui.winTimer = 0;
+          if (ui.apOn) return;
           showSeasonWins();
         }, 1600);
       } else {
@@ -1259,6 +1499,9 @@
     }
 
     function restart() {
+      stopAutopilot(false);
+      ui.ap = null;
+      ui.apSummary = null;
       ui.state = Zox.Sim.freshState();
       ui.view = "world";
       ui.farmId = null;
@@ -1278,6 +1521,8 @@
     }
 
     function bind() {
+      const autoBtn = el("autopilot");
+      if (autoBtn) autoBtn.addEventListener("click", startAutopilot);
       el("tools").addEventListener("click", (e) => {
         const btn = e.target.closest("[data-tool]");
         if (btn) pickTool(btn.dataset.tool);
@@ -1498,7 +1743,7 @@
           e.preventDefault();
         }
         if (e.key === "Enter" && !e.repeat) {
-          nextSeason();
+          if (!ui.apOn) nextSeason();
           e.preventDefault();
         }
       });
@@ -1517,6 +1762,15 @@
     bind();
     showIntroIfNeeded();
     render();
+    try {
+      if (window.location.search.indexOf("autopilot=1") !== -1) {
+        const intro = el("intro");
+        if (intro) intro.hidden = true;
+        startAutopilot();
+      }
+    } catch (err) {
+      /* ignore */
+    }
     if (Zox.Help) Zox.Help.bind(function () { return ui; });
     return ui;
   }

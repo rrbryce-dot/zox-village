@@ -37,6 +37,9 @@
       if (ui.grazing) key += "G1";
       key += "V" + Zox.Sim.countVillages(ui.state);
       key += "T" + (ui.tool || "");
+      key += "B" + (ui.state.builtRail == null ? "-" : ui.state.builtRail);
+      if (ui.state.autopilot && ui.state.autopilot.focusId) key += "F" + ui.state.autopilot.focusId;
+      if (ui.state.futureStopIds) key += "P" + ui.state.futureStopIds.length;
       return key;
     }
     let key = (ui && ui.view ? ui.view : "world") + ":" + (ui && ui.farmId ? ui.farmId : "") + ":" + tiles.length;
@@ -420,18 +423,28 @@
     const pathPts = C.railPath;
     const fullPath = pathD(pathPts);
 
-    // Lit segments: connect consecutive mature parcel positions
+    /* Autopilot draws only the segments it has built. Manual play still lights mature spine farms. */
+    const guided = ui.state.builtRail != null;
     const litPaths = [];
-    for (let i = 0; i < rail.segments.length; i++) {
-      if (!rail.segments[i].lit) continue;
-      const a = (C.spine || C.parcels || []).find((p) => p.id === rail.segments[i].from);
-      const b = (C.spine || C.parcels || []).find((p) => p.id === rail.segments[i].to);
-      if (a && b) {
-        const ax = a.railX != null ? a.railX : a.x;
-        const ay = a.railY != null ? a.railY : a.y;
-        const bx = b.railX != null ? b.railX : b.x;
-        const by = b.railY != null ? b.railY : b.y;
-        litPaths.push("M " + ax + " " + ay + " L " + bx + " " + by);
+    if (guided) {
+      const n = ui.state.builtRail || 0;
+      for (let i = 0; i < n && i < pathPts.length - 1; i++) {
+        litPaths.push(
+          "M " + pathPts[i].x + " " + pathPts[i].y + " L " + pathPts[i + 1].x + " " + pathPts[i + 1].y
+        );
+      }
+    } else {
+      for (let i = 0; i < rail.segments.length; i++) {
+        if (!rail.segments[i].lit) continue;
+        const a = (C.spine || C.parcels || []).find((p) => p.id === rail.segments[i].from);
+        const b = (C.spine || C.parcels || []).find((p) => p.id === rail.segments[i].to);
+        if (a && b) {
+          const ax = a.railX != null ? a.railX : a.x;
+          const ay = a.railY != null ? a.railY : a.y;
+          const bx = b.railX != null ? b.railX : b.x;
+          const by = b.railY != null ? b.railY : b.y;
+          litPaths.push("M " + ax + " " + ay + " L " + bx + " " + by);
+        }
       }
     }
 
@@ -455,6 +468,11 @@
           `</g>`
       )
       .join("");
+
+    const futureStops = {};
+    const stopIds = ui.state.futureStopIds || [];
+    for (let s = 0; s < stopIds.length; s++) futureStops[stopIds[s]] = true;
+    const focusId = ui.state.autopilot && ui.state.autopilot.focusId;
 
     const held = {};
     const staged = {};
@@ -481,6 +499,8 @@
       else cls += " is-open";
       if (hasVillage) cls += " has-village";
       if (parcel.spine) cls += " is-spine";
+      if (futureStops[parcel.id] && !hasVillage) cls += " is-future-stop";
+      if (focusId && focusId === parcel.id) cls += " is-focus";
       if (sel) cls += " is-picked";
       if (!owned && held[parcel.id]) cls += " is-held";
       if (!owned && staged[parcel.id]) cls += " is-staged";
@@ -500,6 +520,12 @@
           `<text class="map-label parcel-name" x="${parcel.lx}" y="${parcel.ly}" text-anchor="${parcel.labelAnchor || parcel.anchor || "middle"}">${parcel.mapLabel}</text>`
         );
       }
+      if (futureStops[parcel.id]) {
+        const rr = Math.max(rw, rh) * 0.72 + 2;
+        pinParts.push(
+          `<circle class="stop-ring${hasVillage ? " is-built" : ""}" cx="${parcel.x}" cy="${parcel.y}" r="${rr.toFixed(1)}"/>`
+        );
+      }
       if (hasVillage) {
         const vx = rx + rw - 1;
         const vy = ry + 1;
@@ -515,13 +541,21 @@
     const parcelLabels = labelParts.join("");
     const parcelPins = pinParts.join("");
 
-    const decade = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
+    const seasonCap = (ui.state && ui.state.horizonSeasons) || Zox.GOAL.seasons;
+    const decade = Zox.Sim.decadeInfo(Math.min(ui.state.season, seasonCap), ui.state);
     const villageBit = rail.villages
       ? " · " + rail.villages + " village" + (rail.villages === 1 ? "" : "s")
       : "";
-    const meterLabel = rail.ready
-      ? "Rail lit Detroit to Jersey City · " + decade.short
-      : decade.short + " · " + rail.lit + "/" + rail.need + " lit · " + rail.matureCount + " mature" + villageBit;
+    const builtN = guided ? ui.state.builtRail || 0 : 0;
+    const builtNeed = Math.max(1, pathPts.length - 1);
+    const meterPct = guided ? Math.round((builtN / builtNeed) * 100) : rail.pct;
+    const meterLabel = guided
+      ? builtN >= builtNeed
+        ? "Rail built Detroit to Jersey City · " + decade.short
+        : decade.short + " · rail laid " + builtN + "/" + builtNeed + villageBit
+      : rail.ready
+        ? "Rail lit Detroit to Jersey City · " + decade.short
+        : decade.short + " · " + rail.lit + "/" + rail.need + " lit · " + rail.matureCount + " mature" + villageBit;
     const buying = ui.tool === "farm" && ui.state.money >= cost;
     const broke = ui.tool === "farm" && ui.state.money < cost;
     const mapCls = "corridor-map" + (buying ? " is-buying" : "") + (broke ? " is-broke" : "");
@@ -533,8 +567,8 @@
       `<span>${meterLabel}</span>` +
       `<span class="lot-key"><i class="sw-own"></i> Converting</span>` +
       `<span class="lot-key"><i class="sw-regen"></i> Regenerative</span>` +
-      `<div class="rail-meter" role="progressbar" aria-valuenow="${rail.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${meterLabel}">` +
-      `<i style="width:${rail.pct}%"></i>` +
+      `<div class="rail-meter" role="progressbar" aria-valuenow="${meterPct}" aria-valuemin="0" aria-valuemax="100" aria-label="${meterLabel}">` +
+      `<i style="width:${meterPct}%"></i>` +
       `</div>` +
       `</div>` +
       `<svg class="${mapCls}" viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor" xmlns:xlink="http://www.w3.org/1999/xlink">` +
@@ -543,7 +577,9 @@
       parcels +
       `<path class="rail-case" d="${fullPath}" fill="none"/>` +
       `<path class="rail-future" d="${fullPath}" fill="none"/>` +
-      litPaths.map((d) => `<path class="rail-lit" d="${d}" fill="none"/>`).join("") +
+      litPaths
+        .map((d) => `<path class="${guided ? "rail-built" : "rail-lit"}" d="${d}" fill="none"/>`)
+        .join("") +
       places +
       cities +
       parcelPins +
