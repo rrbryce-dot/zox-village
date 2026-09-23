@@ -13,6 +13,7 @@
     compost: "♻",
     rail: "☰",
     park: "❀",
+    village: "🏘",
     bulldoze: "✗",
   };
 
@@ -73,6 +74,12 @@
 
     function seasonLabel() {
       const s = ui.state.season;
+      if (Zox.Sim.decadeInfo) {
+        if (s > Zox.GOAL.seasons) {
+          return "After Decade " + (Zox.GOAL.decades || 4) + " · Year " + Zox.GOAL.seasons;
+        }
+        return Zox.Sim.decadeInfo(s).label;
+      }
       if (s > Zox.GOAL.seasons) return "After season " + Zox.GOAL.seasons;
       return "Season " + s + " of " + Zox.GOAL.seasons;
     }
@@ -301,7 +308,7 @@
           }
         }
         if (place) place.textContent = "Improvements on this farm";
-        if (keys) keys.textContent = "Keys 1–7 pick tools. B back to map. Enter turns the season.";
+        if (keys) keys.textContent = "Keys 1–8 pick tools (7 = eco-village). B back to map. Enter turns the season.";
         if (meadow) meadow.textContent = "Field";
         if (legend) legend.hidden = false;
       } else {
@@ -439,7 +446,52 @@
         .join("");
     }
 
-    function renderCompare(look) {
+        function renderCompare(look) {
+
+      const LEDGER_LINES = [
+        { key: "fertilizer", label: "Fertilizer", money: true },
+        { key: "syntheticNitrogen", label: "Synthetic nitrogen", money: true },
+        { key: "insecticides", label: "Insecticides", money: true },
+        { key: "herbicides", label: "Herbicides", money: true },
+        { key: "fungicides", label: "Fungicides", money: true },
+        { key: "fossilFuel", label: "Fossil fuel / diesel", money: true },
+        { key: "purchasedSeed", label: "Purchased seed", money: true },
+        { key: "irrigationChemicals", label: "Irrigation chemicals", money: true },
+        { key: "manureReturn", label: "Manure nutrients returned", money: false, good: true },
+        { key: "soilOrganicMatter", label: "Soil organic matter", money: false, good: true },
+        { key: "carbonTons", label: "Carbon sequestered", money: false, good: true, unit: "t" },
+        { key: "nutritionMult", label: "Nutrition multiplier", money: false, good: true, unit: "×" },
+        { key: "waterUse", label: "Water use", money: false, invert: true },
+        { key: "runoff", label: "Runoff", money: false, invert: true },
+        { key: "erosion", label: "Erosion", money: false, invert: true },
+        { key: "biodiversity", label: "Biodiversity", money: false, good: true },
+        { key: "laborChem", label: "Labor on chem bill", money: true },
+        { key: "laborLiving", label: "Living-system care", money: true, soft: true },
+      ];
+
+      function fmtLedger(v, line) {
+        if (v == null) return "—";
+        if (line.unit === "×") return v + "×";
+        if (line.unit === "t") return v + " t";
+        if (line.money) {
+          if (v === 0) return "$0";
+          return (v > 0 && !line.soft ? "−$" : "$") + Math.abs(v);
+        }
+        if (line.good && v > 0) return "+" + v;
+        return String(v);
+      }
+
+      function ledgerTable(led) {
+        if (!led) return "";
+        return `<table class="ledger-table"><tbody>` +
+          LEDGER_LINES.map(function (line) {
+            const v = led[line.key];
+            const zero = line.money && v === 0;
+            return `<tr class="${zero ? "is-zero" : ""} ${line.good ? "is-good" : ""} ${line.invert ? "is-bad" : ""}"><th>${line.label}</th><td>${fmtLedger(v, line)}</td></tr>`;
+          }).join("") +
+          `</tbody></table>`;
+      }
+
       const box = el("farm-sidebar");
       if (!box) return;
       const farm = currentFarm() || (look && look.farm);
@@ -453,18 +505,21 @@
         const on = !!(books && books.model === row.id);
         const live =
           on && books.model === "converting"
-            ? { name: books.label, gross: books.gross, inputs: books.inputs, net: books.net }
+            ? { name: books.label, gross: books.gross, inputs: books.inputs, net: books.net, ledger: books.ledger }
             : row;
+        const led = live.ledger || row.ledger;
         return `<article class="farm-col ${row.id}${on ? " is-you" : ""}${extra || ""}">
-          <h3>${live.name}</h3>
+          <h3>${live.name || row.name}</h3>
           ${on ? `<p class="you-are">${farm && farm.name ? farm.name : "This farm"}</p>` : ""}
-          <dl>
-            <div><dt>Gross</dt><dd>$${live.gross}</dd></div>
+          <dl class="farm-summary">
+            <div><dt>Gross / acre</dt><dd>$${live.gross}</dd></div>
             <div><dt>Chem / inputs</dt><dd>${live.inputs ? "−$" + live.inputs : "$0"}</dd></div>
-            <div class="net"><dt>Net</dt><dd>$${live.net}</dd></div>
+            <div class="net"><dt>Net income / acre</dt><dd>$${live.net}</dd></div>
             <div><dt>Nutrition</dt><dd>${row.id === "regenerative" ? "6×" : row.id === "converting" ? "~2×" : "1×"}</dd></div>
           </dl>
-          ${row.id !== "converting" ? `<p class="net-hero">$${live.net}</p>` : ""}
+          <p class="ledger-kicker">Input ledger ($/acre · season)</p>
+          ${ledgerTable(led)}
+          ${row.id !== "converting" ? `<p class="net-hero">$${live.net}<span class="net-sub">net / acre</span></p>` : ""}
         </article>`;
       }
 
@@ -472,7 +527,7 @@
         col(trad) +
         col(conv, " is-slim") +
         col(regen, " is-win") +
-        `<p class="quiet compare-punch">Regen nets $${regen.net} and feeds people at 6× traditional nutrition. Traditional nets $${trad.net} after the chem bill. That is why the wait pays.</p>`;
+        `<p class="quiet compare-punch">Regen nets <b>$${regen.net}/acre</b> with a $0 chem bill and 6× nutrition. Traditional nets <b>$${trad.net}/acre</b> after fertilizer, nitrogen, pesticides, and diesel. That cash buys the next farm along the rail — that is why the wait pays.</p>`;
     }
 
     function renderEnd() {
@@ -584,13 +639,14 @@
       render();
     }
 
-    function showSeasonWins() {
+        function showSeasonWins() {
       const card = el("season-win");
       if (!card) return;
       const wins = ui.state.lastSeasonWins || {
         earth: ui.state.carbonSeason || 0,
         population: ui.state.nutritionExtra || 0,
       };
+      const report = ui.state.lastReport || (Zox.Sim.seasonReportCard ? Zox.Sim.seasonReportCard(ui.state) : null);
       const earth = el("earth-win-num");
       const pop = el("pop-win-num");
       if (earth) earth.textContent = String(wins.earth || 0);
@@ -598,8 +654,55 @@
       const grazeEl = el("graze-win-num");
       const graze = (ui.state.lastIncome && ui.state.lastIncome.graze) || 0;
       if (grazeEl) grazeEl.textContent = "$" + graze;
+
+      const title = el("season-win-title");
+      if (title && report && report.decade) {
+        title.textContent = report.decade.label + " — report card";
+      }
+
+      const reportBox = el("season-report");
+      if (reportBox && report) {
+        const L = report.ledgerTrad || {};
+        const R = report.ledgerRegen || {};
+        function bar(label, a, b, unit) {
+          const max = Math.max(Math.abs(a), Math.abs(b), 1);
+          const wa = Math.round((Math.abs(a) / max) * 100);
+          const wb = Math.round((Math.abs(b) / max) * 100);
+          return `<div class="report-row"><span class="report-label">${label}</span>
+            <div class="report-bars">
+              <div class="bar trad" style="width:${wa}%"><i>${a}${unit || ""}</i></div>
+              <div class="bar regen" style="width:${wb}%"><i>${b}${unit || ""}</i></div>
+            </div></div>`;
+        }
+        reportBox.innerHTML =
+          `<div class="report-head"><span>Traditional</span><span>Regenerative</span></div>` +
+          bar("Inputs spent $/acre", (Number(L.fertilizer)||0)+(Number(L.syntheticNitrogen)||0)+(Number(L.insecticides)||0)+(Number(L.herbicides)||0)+(Number(L.fungicides)||0)+(Number(L.fossilFuel)||0)+(Number(L.purchasedSeed)||0)+(Number(L.irrigationChemicals)||0) || 10, 0, "") +
+          bar("Net income $/acre", report.netPerAcreTrad, report.netPerAcreRegen, "") +
+          bar("Carbon (game units)", 0, report.carbon, "") +
+          bar("Nutrition mult", L.nutritionMult || 1, R.nutritionMult || 6, "×") +
+          bar("Biodiversity", L.biodiversity || 2, R.biodiversity || 9, "") +
+          bar("Runoff / erosion", (L.runoff || 0) + (L.erosion || 0), (R.runoff || 0) + (R.erosion || 0), "") +
+          `<div class="report-totals">
+            <div><b>Cumulative carbon</b> ${report.carbonTotal}</div>
+            <div><b>Acres</b> ${report.acres} (${report.matureAcres} mature)</div>
+            <div><b>Eco-villages</b> ${report.villages}</div>
+            <div><b>Rail</b> ${report.railPct}% (${report.railLit}/${report.railNeed})</div>
+            <div class="report-cash"><b>Jar</b> $${report.money} · season net ${report.incomeNet >= 0 ? "+" : ""}$${report.incomeNet}</div>
+          </div>
+          <p class="report-link">Net $/acre from regen is what buys the next farmland along Detroit → Jersey City.</p>`;
+      }
+
       const how = el("score-how");
       if (how) how.open = false;
+      const howBody = el("score-how-body");
+      if (howBody) {
+        howBody.innerHTML =
+          "<p><b>Earth wins</b> count carbon locked in soil this season: mature regen farms sequester the most, converting farms less, orchards and standing groves add a little. Eco-villages near mature farms boost Health and rail readiness.</p>" +
+          "<p><b>Population wins</b> count additional nutrition above a traditional baseline. Mature Zox food is 6× traditional nutrition; converting farms are about 2×. Villages add a little more.</p>" +
+          "<p><b>Input ledger</b> shows why regen wins: fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals cost Traditional ~$10/acre and Regenerative $0 — animals and living soil replace them. Manure returns nutrients; soil organic matter rises.</p>" +
+          "<p><b>Net income per acre</b> (Traditional ~$8 vs Regenerative $16) is the cash that buys the next farm along the rail. Play spans four decades toward lighting Detroit → Jersey City.</p>" +
+          "<p><b>Crop rent</b> (on Next Season) is separate cash — animals graze the stubble and leave manure.</p>";
+      }
       const buyNext = el("season-buy-next");
       if (buyNext) {
         const afford = canAffordNextFarm();
@@ -730,7 +833,7 @@
 
       window.addEventListener("resize", fitBoard);
 
-      function openFarmModels() {
+          function openFarmModels() {
         const box = el("farm-compare");
         const farm = currentFarm();
         const look =
@@ -740,18 +843,51 @@
               ? Zox.Sim.inspectParcel(ui.state, ui.selected.parcelId)
               : null;
         const books = farm ? Zox.Sim.farmBooks(farm) : look && look.farm ? Zox.Sim.farmBooks(look.farm) : null;
+        const LEDGER_LINES = [
+          { key: "fertilizer", label: "Fertilizer" },
+          { key: "syntheticNitrogen", label: "Synthetic N" },
+          { key: "insecticides", label: "Insecticides" },
+          { key: "herbicides", label: "Herbicides" },
+          { key: "fungicides", label: "Fungicides" },
+          { key: "fossilFuel", label: "Diesel / fuel" },
+          { key: "purchasedSeed", label: "Purchased seed" },
+          { key: "irrigationChemicals", label: "Irrigation chems" },
+          { key: "manureReturn", label: "Manure returned" },
+          { key: "soilOrganicMatter", label: "Soil OM gain" },
+          { key: "carbonTons", label: "Carbon (t)" },
+          { key: "nutritionMult", label: "Nutrition" },
+          { key: "waterUse", label: "Water use" },
+          { key: "runoff", label: "Runoff" },
+          { key: "erosion", label: "Erosion" },
+          { key: "biodiversity", label: "Biodiversity" },
+          { key: "laborChem", label: "Chem labor" },
+          { key: "laborLiving", label: "Living-system care" },
+        ];
         box.innerHTML = Zox.Sim.farmModelRows()
           .map((row) => {
             const on = books && books.model === row.id;
+            const led = row.ledger || {};
+            const lines = LEDGER_LINES.map(function (line) {
+              let v = led[line.key];
+              let shown = v;
+              if (line.key === "nutritionMult") shown = v + "×";
+              else if (["fertilizer","syntheticNitrogen","insecticides","herbicides","fungicides","fossilFuel","purchasedSeed","irrigationChemicals","laborChem"].indexOf(line.key) >= 0) {
+                shown = v === 0 ? "$0" : "−$" + v;
+              } else if (typeof v === "number" && v > 0 && ["manureReturn","soilOrganicMatter","biodiversity","carbonTons"].indexOf(line.key) >= 0) {
+                shown = "+" + v;
+              }
+              return `<div><dt>${line.label}</dt><dd>${shown}</dd></div>`;
+            }).join("");
             return `<article class="farm-col ${row.id}${on ? " is-you" : ""}">
               <h3>${row.name}</h3>
               ${on ? `<p class="you-are">${farm && farm.name ? farm.name : "This farm"}</p>` : ""}
               <dl>
-                <div><dt>Gross crop</dt><dd>$${row.gross}</dd></div>
-                <div><dt>Input costs</dt><dd>${row.inputs ? "−$" + row.inputs : "$0"}</dd></div>
-                <div class="net"><dt>Net</dt><dd>$${row.net}</dd></div>
-                <div><dt>Nutrition</dt><dd>${row.id === "regenerative" ? "6×" : row.id === "converting" ? "~2×" : "1×"} traditional</dd></div>
+                <div><dt>Gross crop / acre</dt><dd>$${row.gross}</dd></div>
+                <div><dt>Input costs / acre</dt><dd>${row.inputs ? "−$" + row.inputs : "$0"}</dd></div>
+                <div class="net"><dt>Net income / acre</dt><dd>$${row.net}</dd></div>
+                ${lines}
               </dl>
+              <p class="net-hero">$${row.net}<span class="net-sub">buys farmland</span></p>
               <p>${row.note}</p>
             </article>`;
           })
@@ -806,7 +942,8 @@
           4: "compost",
           5: "rail",
           6: "park",
-          7: "bulldoze",
+          7: "village",
+          8: "bulldoze",
         };
         const keys = ui.view === "farm" ? farmKeys : worldKeys;
         if (e.key === "m" || e.key === "M") {

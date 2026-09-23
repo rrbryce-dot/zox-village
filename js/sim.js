@@ -93,6 +93,39 @@
     };
   }
 
+  function scaleLedger(base, scale) {
+    const out = {};
+    const keys = Object.keys(base || {});
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const v = base[k];
+      if (k === "nutritionMult") {
+        out[k] = v;
+      } else if (typeof v === "number") {
+        out[k] = Math.round(v * scale * 10) / 10;
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  }
+
+  function farmLedgerFor(modelId, year) {
+    const models = Zox.FARM_MODELS;
+    if (modelId === "traditional") {
+      return Object.assign({}, models.traditional.ledger);
+    }
+    if (modelId === "regenerative") {
+      return Object.assign({}, models.regenerative.ledger);
+    }
+    const years = models.converting.years;
+    const row = years[(year || 3) - 1] || years[2];
+    const scale = row.ledgerScale != null ? row.ledgerScale : 0.35;
+    const led = scaleLedger(models.converting.ledger, scale / 0.35);
+    led.nutritionMult = 2;
+    return led;
+  }
+
   function farmBooks(farm) {
     const models = Zox.FARM_MODELS;
     if (!farm) return null;
@@ -108,6 +141,7 @@
         inputs: row.inputs,
         net: row.gross - row.inputs,
         note: row.note,
+        ledger: farmLedgerFor("regenerative"),
       };
     }
     const prog = farmProgress(farm);
@@ -122,6 +156,7 @@
       inputs: row.inputs,
       net: row.gross - row.inputs,
       note: models.converting.note,
+      ledger: farmLedgerFor("converting", prog.year),
     };
   }
 
@@ -151,6 +186,7 @@
         inputs: models.traditional.inputs,
         net: models.traditional.gross - models.traditional.inputs,
         note: models.traditional.note,
+        ledger: farmLedgerFor("traditional"),
       },
       {
         id: "converting",
@@ -159,6 +195,7 @@
         inputs: mid.inputs,
         net: mid.gross - mid.inputs,
         note: models.converting.note,
+        ledger: farmLedgerFor("converting", mid.year),
       },
       {
         id: "regenerative",
@@ -167,8 +204,78 @@
         inputs: models.regenerative.inputs,
         net: models.regenerative.gross - models.regenerative.inputs,
         note: models.regenerative.note,
+        ledger: farmLedgerFor("regenerative"),
       },
     ];
+  }
+
+  function decadeInfo(season) {
+    const per = Zox.GOAL.seasonsPerDecade || 5;
+    const decades = Zox.GOAL.decades || 4;
+    const s = Math.max(1, season || 1);
+    const decade = Math.min(decades, Math.ceil(s / per));
+    const seasonInDecade = ((s - 1) % per) + 1;
+    const year = s; /* each season is one year on the long-horizon board */
+    return {
+      decade: decade,
+      decades: decades,
+      seasonInDecade: seasonInDecade,
+      seasonsPerDecade: per,
+      year: year,
+      yearsTotal: Zox.GOAL.seasons,
+      label:
+        "Decade " +
+        decade +
+        " · Year " +
+        seasonInDecade +
+        " of " +
+        per +
+        " · Year " +
+        year +
+        " of " +
+        Zox.GOAL.seasons,
+    };
+  }
+
+  function countVillages(state) {
+    return buildingsOf(state, "village").length;
+  }
+
+  function seasonReportCard(state) {
+    const rows = farmModelRows();
+    const trad = rows[0];
+    const regen = rows[2];
+    const rail = railProgress(state);
+    const villages = countVillages(state);
+    let acres = state.farms ? state.farms.length : 0;
+    let matureAcres = 0;
+    for (let i = 0; i < (state.farms || []).length; i++) {
+      if (farmMature(state.farms[i])) matureAcres += 1;
+    }
+    const inc = state.lastIncome || {};
+    const wins = state.lastSeasonWins || {};
+    const decade = decadeInfo(Math.max(1, (state.season || 1) - 1));
+    return {
+      decade: decade,
+      inputsSpent: inc.inputs || 0,
+      carbon: wins.earth || state.carbonSeason || 0,
+      carbonTotal: state.carbonTotal || 0,
+      nutrition: wins.population || state.nutritionExtra || 0,
+      netPerAcreTrad: trad.net,
+      netPerAcreRegen: regen.net,
+      acres: acres,
+      matureAcres: matureAcres,
+      villages: villages,
+      railPct: rail.pct,
+      railLit: rail.lit,
+      railNeed: rail.need,
+      money: state.money,
+      health: state.health,
+      incomeNet: inc.net || 0,
+      graze: inc.graze || 0,
+      ledgerTrad: trad.ledger,
+      ledgerRegen: regen.ledger,
+    };
   }
 
   function emptyIncome() {
@@ -202,12 +309,18 @@
     const need = Math.max(1, parcels.length - 1);
     const matureCount = mature.filter(Boolean).length;
     const ownedCount = owned.filter(Boolean).length;
+    const villages = buildingsOf(state, "village");
+    const vBoost = villages.length * ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.railBoost) || 0);
+    const rawPct = Math.round((lit / need) * 100);
+    const pct = Math.min(100, rawPct + vBoost * 4);
     return {
       parcels,
       segments,
       lit,
       need,
-      pct: Math.round((lit / need) * 100),
+      pct: pct,
+      villageBoost: vBoost,
+      villages: villages.length,
       matureCount,
       ownedCount,
       total: parcels.length,
@@ -265,8 +378,14 @@
   function recountEnergyAndPeople(state) {
     const homes = buildingsOf(state, "home");
     const yards = buildingsOf(state, "solar");
-    state.population = homes.length * Zox.BUILDINGS.home.pop;
-    state.energyDemand = homes.length * Zox.BUILDINGS.home.energyUse;
+    const villages = buildingsOf(state, "village");
+    const vDef = Zox.BUILDINGS.village;
+    state.population =
+      homes.length * Zox.BUILDINGS.home.pop +
+      villages.length * ((vDef && vDef.pop) || 0);
+    state.energyDemand =
+      homes.length * Zox.BUILDINGS.home.energyUse +
+      villages.length * ((vDef && vDef.energyUse) || 0);
     state.energySupply = yards.length * Zox.BUILDINGS.solar.energy;
   }
 
@@ -339,6 +458,9 @@
     if (!farm) return { ok: false, why: "That farm is not on the books." };
     const def = Zox.BUILDINGS[buildingId];
     if (!def) return { ok: false, why: "Unknown building." };
+    if (def.requiresMature && !farmMature(farm)) {
+      return { ok: false, why: "Eco-villages unlock beside a mature regen farm — finish the five-year convert first." };
+    }
     const tile = Zox.Map.getTile(farm.tiles, r, c);
     const land = canBuildOn(tile);
     if (!land.ok) return land;
@@ -372,6 +494,7 @@
       compost: "The heap is working on " + farm.name + ". It does not smell like a lecture.",
       rail: "Rail in the grass on " + farm.name + ". Link another tile and the far lots join the talk.",
       park: "An orchard on " + farm.name + " for Sunday. Someone will bring a pie.",
+      village: "An eco-village rises near " + farm.name + " — health and rail readiness climb. Villages + farms light the corridor.",
     };
     pushLog(state, notes[buildingId] || "Built on " + farm.name + ".");
     return { ok: true, why: "" };
@@ -682,6 +805,7 @@
     for (let i = 0; i < yards.length; i++) streams.upkeep += Zox.BUILDINGS.solar.upkeep;
     for (let i = 0; i < hubs.length; i++) streams.upkeep += Zox.BUILDINGS.compost.upkeep;
     for (let i = 0; i < rails.length; i++) streams.upkeep += Zox.BUILDINGS.rail.upkeep;
+    for (let i = 0; i < buildingsOf(state, "village").length; i++) streams.upkeep += Zox.BUILDINGS.village.upkeep;
 
     natureDelta += parks.length * Zox.BUILDINGS.park.nature;
     happyDelta += parks.length * Zox.BUILDINGS.park.happy;
@@ -701,6 +825,13 @@
     if (corridorRail.ready) {
       streams.other += 6;
       happyDelta += 3;
+    }
+    const villageCount = buildingsOf(state, "village").length;
+    if (villageCount > 0) {
+      streams.other += villageCount * 2;
+      happyDelta += villageCount;
+      /* Eco-villages near regen farms hasten the corridor story */
+      streams.credits += villageCount;
     }
 
     streams.net = Math.round(streams.crops + streams.graze + streams.apartments + streams.credits + streams.other - streams.upkeep);
@@ -736,15 +867,31 @@
       season: state.season,
     };
 
-    const healthTarget = computeHealthTarget(state, parks);
+    const villages = buildingsOf(state, "village");
+    let villageHealth = 0;
+    let villageNutrition = 0;
+    for (let vi = 0; vi < villages.length; vi++) {
+      const vdef = Zox.BUILDINGS.village;
+      villageHealth += vdef.healthBoost || 0;
+      villageNutrition += vdef.nutritionBoost || 0;
+    }
+    const healthTarget = clamp(computeHealthTarget(state, parks) + villageHealth, 0, 100);
     state.health = clamp(
       Math.round(state.health * 0.35 + healthTarget * 0.65),
       0,
       100
     );
+    if (villageNutrition) {
+      state.nutritionExtra = (state.nutritionExtra || 0) + villageNutrition;
+    }
 
     state.lastIncome = streams;
+    if (state.lastSeasonWins) {
+      state.lastSeasonWins.population = state.nutritionExtra || state.lastSeasonWins.population;
+      state.lastSeasonWins.villages = buildingsOf(state, "village").length;
+    }
     state.season += 1;
+    state.lastReport = seasonReportCard(state);
 
     const after = snapshotMeters(state);
     state.lastDelta = {
@@ -854,6 +1001,10 @@
     farmYield,
     farmBooks,
     farmModelRows,
+    farmLedgerFor,
+    decadeInfo,
+    seasonReportCard,
+    countVillages,
     getFarm,
     getFarmByParcel,
     getParcel,

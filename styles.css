@@ -1885,3 +1885,215 @@ body {
   margin-top: 0;
   min-width: 160px;
 }
+
+
+/* —— Full input ledger —— */
+.ledger-kicker {
+  margin: 8px 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft, #5a4a32);
+}
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  margin-bottom: 6px;
+}
+.ledger-table th {
+  text-align: left;
+  font-weight: 600;
+  padding: 2px 4px 2px 0;
+  color: var(--ink-soft, #5a4a32);
+}
+.ledger-table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 0;
+  font-weight: 700;
+}
+.ledger-table tr.is-zero td {
+  color: #2f6a32;
+}
+.ledger-table tr.is-good td {
+  color: #2f6a32;
+}
+.ledger-table tr.is-bad td {
+  color: #8a4a28;
+}
+.farm-summary .net dd,
+.farm-col .net-hero {
+  color: var(--moss, #2f6a32);
+}
+.farm-col.traditional .net-hero {
+  color: #8a4a28;
+}
+.farm-col .net-sub,
+.net-hero .net-sub {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.compare-punch b {
+  color: var(--moss, #2f6a32);
+}
+
+/* —— Season report card —— */
+.season-report {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 250, 237, 0.95);
+  border: 1px solid rgba(63, 92, 52, 0.22);
+  text-align: left;
+  font-size: 0.82rem;
+}
+.report-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+  color: var(--ink-soft, #5a4a32);
+}
+.report-head span:first-child { color: #8a4a28; }
+.report-head span:last-child { color: #2f6a32; }
+.report-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.report-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.report-bars {
+  display: grid;
+  gap: 3px;
+}
+.report-bars .bar {
+  height: 14px;
+  border-radius: 4px;
+  min-width: 4px;
+  position: relative;
+  transition: width 0.35s ease;
+}
+.report-bars .bar.trad {
+  background: linear-gradient(90deg, #c48a5a, #a86838);
+}
+.report-bars .bar.regen {
+  background: linear-gradient(90deg, #6b9a40, #c9e86a);
+}
+.report-bars .bar i {
+  position: absolute;
+  right: 4px;
+  top: 0;
+  font-style: normal;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 14px;
+  color: #1e2a14;
+  text-shadow: 0 0 2px #f4ead3;
+}
+.report-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(63, 92, 52, 0.25);
+  font-size: 0.78rem;
+}
+.report-cash {
+  grid-column: 1 / -1;
+  font-size: 0.88rem;
+}
+.report-link {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2f6a32;
+}
+
+/* —— Eco-village glow —— */
+.piece-village {
+  filter: drop-shadow(0 0 6px rgba(201, 232, 106, 0.85));
+}
+.village-glow {
+  animation: village-pulse 2.2s ease-in-out infinite;
+}
+@keyframes village-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+.has-village .iso-cap,
+.iso-tile.has-village .iso-cap {
+  box-shadow: inset 0 0 0 2px rgba(201, 232, 106, 0.7);
+}
+.corridor-parcel.has-village .parcel-deed {
+  fill: #8fbf4a;
+  stroke: #c9e86a;
+  stroke-width: 0.7;
+  filter: drop-shadow(0 0 1.2px #c9e86a);
+}
+
+/* —— Field state polish —— */
+.is-converting-field .iso-cap {
+  background: linear-gradient(135deg, #c4a86a, #8a9a48);
+}
+.is-young-convert .iso-cap {
+  background: linear-gradient(135deg, #b89058, #9a7a40);
+}
+.is-regen-field .iso-cap {
+  background: linear-gradient(135deg, #6b9a40, #3f7a38);
+  box-shadow: inset 0 0 8px rgba(201, 232, 106, 0.35);
+}
+.manure-dots {
+  position: absolute;
+  inset: 30% 20% auto;
+  height: 10px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 50%, #5a3a20 0 2px, transparent 2.5px),
+    radial-gradient(circle at 55% 40%, #6a4a28 0 1.8px, transparent 2.2px),
+    radial-gradient(circle at 80% 60%, #4a2a18 0 1.5px, transparent 2px);
+  opacity: 0.55;
+}
+.is-grazing .manure-dots {
+  opacity: 0.9;
+  animation: manure-settle 1.8s ease-in-out infinite;
+}
+@keyframes manure-settle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(1px); }
+}
+
+/* Stronger lit rail */
+.rail-lit {
+  filter: drop-shadow(0 0 1.4px #e8f5a0) drop-shadow(0 0 2.5px #c9e86a);
+  stroke: #e8f5a0 !important;
+  stroke-width: 2.2 !important;
+}
+.corridor-parcel.is-mature .parcel-deed {
+  fill: #5a9a38;
+  stroke: #c9e86a;
+  filter: drop-shadow(0 0 1px #c9e86a);
+}
+.corridor-parcel.is-owned:not(.is-mature) .parcel-deed {
+  fill: #c9a24a;
+  stroke: #8a6a28;
+}
+
+/* Decade season chip */
+.season {
+  font-size: 0.92rem;
+  line-height: 1.25;
+  max-width: 280px;
+}

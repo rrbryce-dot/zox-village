@@ -60,7 +60,17 @@
     const parts = ["iso-tile", "is-" + tile.terrain];
     if (tile.building) parts.push("has-" + tile.building);
     if (tile.landmark === "barn") parts.push("has-barn");
-    if (ui.view === "farm" && !tile.building && tile.terrain === "meadow") parts.push("is-field");
+    if (ui.view === "farm" && !tile.building && tile.terrain === "meadow") {
+      parts.push("is-field");
+      const farm = Zox.Sim.getFarm(ui.state, ui.farmId);
+      if (farm) {
+        if (Zox.Sim.farmMature(farm)) parts.push("is-regen-field");
+        else parts.push("is-converting-field");
+        const age = farm.regenAge || 0;
+        if (age <= 1) parts.push("is-young-convert");
+      }
+    }
+    if (tile.building === "village") parts.push("has-village");
     if (ui.hover && ui.hover.r === tile.r && ui.hover.c === tile.c) parts.push("is-hover");
     if (ui.selected && ui.selected.r === tile.r && ui.selected.c === tile.c) parts.push("is-picked");
     if (ui.tool === "compost" || tile.building === "compost") {
@@ -176,6 +186,22 @@
         `</svg>`
       );
     }
+    
+    if (id === "village") {
+      return (
+        `<svg class="piece piece-village" viewBox="0 0 48 56" aria-hidden="true">` +
+        `<ellipse cx="24" cy="52" rx="14" ry="3" fill="rgba(40,30,10,.22)"/>` +
+        `<path d="M8 34 L18 38 L18 48 L8 44 Z" fill="#d4b896"/>` +
+        `<path d="M18 38 L28 34 L28 44 L18 48 Z" fill="#e8d2a8"/>` +
+        `<path d="M8 34 L18 26 L28 34 L18 38 Z" fill="#3f7a48"/>` +
+        `<path d="M22 30 L34 24 L42 30 L30 36 Z" fill="#c9a878"/>` +
+        `<path d="M22 30 L34 18 L42 30 L30 36 Z" fill="#5a9a50"/>` +
+        `<circle class="village-glow" cx="24" cy="22" r="6" fill="#c9e86a" opacity="0.55"/>` +
+        `<path d="M14 42 q2-8 4-2" stroke="#f4ead3" fill="none" stroke-width="1"/>` +
+        `</svg>`
+      );
+    }
+
     if (id === "park") {
       return (
         `<svg class="piece piece-park" viewBox="0 0 48 52" aria-hidden="true">` +
@@ -253,7 +279,7 @@
 
   function capDecor(tile, farmView) {
     if (tile.building === "farm" || (farmView && tile.terrain === "meadow" && !tile.building)) {
-      return `<span class="furrows" aria-hidden="true"></span>`;
+      return `<span class="furrows" aria-hidden="true"></span><span class="manure-dots" aria-hidden="true"></span>`;
     }
     if (tile.terrain === "meadow" && !tile.building) {
       return `<span class="tufts" aria-hidden="true"></span>`;
@@ -386,11 +412,13 @@
         const farm = Zox.Sim.getFarmByParcel(ui.state, parcel.id);
         const owned = !!farm;
         const mature = owned && Zox.Sim.farmMature(farm);
+        const hasVillage = owned && farm.tiles && Zox.Map.tilesOf(farm.tiles, "village").length > 0;
         const prog = owned ? Zox.Sim.farmProgress(farm) : null;
         const sel = ui.selected && ui.selected.parcelId === parcel.id;
         const hov = ui.hover && ui.hover.parcelId === parcel.id;
         let cls = "corridor-parcel";
         if (owned) cls += mature ? " is-mature" : " is-owned";
+        if (hasVillage) cls += " has-village";
         else cls += " is-open";
         if (sel) cls += " is-picked";
         if (hov) cls += " is-hover";
@@ -437,7 +465,7 @@
       `<stop offset="0%" stop-color="#6bb8c4"/>` +
       `<stop offset="100%" stop-color="#3a7a88"/>` +
       `</linearGradient>` +
-      `<filter id="soft"><feGaussianBlur stdDeviation="0.6"/></filter>` +
+      `<filter id="soft"><feGaussianBlur stdDeviation="0.6"/></filter><filter id="railGlow"><feGaussianBlur stdDeviation="0.9"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
       `</defs>` +
       `<rect width="100" height="70" fill="url(#landGrad)"/>` +
       /* Great Lakes stylized blobs */
@@ -456,7 +484,7 @@
       `<path class="rail-future" d="${fullPath}" fill="none" stroke="#2f6a32" stroke-width="1.1" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>` +
       /* Lit solid segments */
       litPaths
-        .map((d) => `<path class="rail-lit" d="${d}" fill="none" stroke="#c9e86a" stroke-width="1.8" stroke-linecap="round"/>`)
+        .map((d) => `<path class="rail-lit" filter="url(#railGlow)" d="${d}" fill="none" stroke="#c9e86a" stroke-width="1.8" stroke-linecap="round"/>`)
         .join("") +
       cities +
       parcels +

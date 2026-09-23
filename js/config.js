@@ -75,6 +75,21 @@
       credits: 3,
       hint: "On this farm. Sunday walking. Birds come back. A little carbon credit on the side.",
     },
+    village: {
+      id: "village",
+      name: "Eco-village",
+      short: "Village",
+      cost: 52,
+      pop: 6,
+      energyUse: 2,
+      waste: 1,
+      upkeep: 2,
+      healthBoost: 6,
+      nutritionBoost: 2,
+      railBoost: 1,
+      requiresMature: true,
+      hint: "Near a mature regen farm — from the porch book. Boosts Health and rail readiness. Villages + farms light Detroit→Jersey City.",
+    },
   };
 
   const TOOLS = [
@@ -85,6 +100,7 @@
     { id: "compost", kind: "build" },
     { id: "rail", kind: "build" },
     { id: "park", kind: "build" },
+    { id: "village", kind: "build" },
     { id: "bulldoze", name: "Clear lot", kind: "tool", hint: "Pull an improvement. You get about half the timber back. The farm deed stays on the map." },
   ];
 
@@ -100,11 +116,14 @@
     { id: "compost", kind: "build" },
     { id: "rail", kind: "build" },
     { id: "park", kind: "build" },
+    { id: "village", kind: "build" },
     { id: "bulldoze", name: "Clear lot", kind: "tool", hint: "Pull an improvement on this farm. About half the timber comes back." },
   ];
 
   const GOAL = {
-    seasons: 18,
+    seasons: 20,
+    decades: 4,
+    seasonsPerDecade: 5,
     carbonMin: 28,
     healthMin: 75,
     nutritionFactor: 6,
@@ -182,6 +201,7 @@
    * Per-season crop books, before water/rail bonuses.
    * Traditional is the comparison baseline (not a separate placeable).
    * Player farmland converts year-by-year, then sits on the regen row.
+   * Line items are $/acre-season so players SEE why regen nets more.
    */
   const FARM_MODELS = {
     traditional: {
@@ -190,25 +210,85 @@
       gross: 18,
       inputs: 10,
       note: "Buys fertilizer, pesticides, and nitrogen every season. The chem bill eats the crop check.",
+      ledger: {
+        fertilizer: 2.5,
+        syntheticNitrogen: 2.5,
+        insecticides: 1.2,
+        herbicides: 1.3,
+        fungicides: 0.8,
+        fossilFuel: 1.2,
+        purchasedSeed: 0.3,
+        irrigationChemicals: 0.2,
+        laborChem: 3,
+        laborLiving: 1,
+        waterUse: 10,
+        runoff: 8,
+        erosion: 7,
+        biodiversity: 2,
+        manureReturn: 0,
+        soilOrganicMatter: -1,
+        carbonTons: 0,
+        nutritionMult: 1,
+      },
     },
     converting: {
       id: "converting",
       name: "Converting",
       years: [
-        { year: 1, gross: 10, inputs: 6 },
-        { year: 2, gross: 11, inputs: 4 },
-        { year: 3, gross: 12, inputs: 3 },
-        { year: 4, gross: 13, inputs: 2 },
-        { year: 5, gross: 14, inputs: 1 },
+        { year: 1, gross: 10, inputs: 6, ledgerScale: 0.7 },
+        { year: 2, gross: 11, inputs: 4, ledgerScale: 0.5 },
+        { year: 3, gross: 12, inputs: 3, ledgerScale: 0.35 },
+        { year: 4, gross: 13, inputs: 2, ledgerScale: 0.2 },
+        { year: 5, gross: 14, inputs: 1, ledgerScale: 0.1 },
       ],
       note: "Still weaning off the bag. Inputs shrink each year. Full graze cycle waits on year five.",
+      ledger: {
+        fertilizer: 1.2,
+        syntheticNitrogen: 1.0,
+        insecticides: 0.5,
+        herbicides: 0.5,
+        fungicides: 0.3,
+        fossilFuel: 0.6,
+        purchasedSeed: 0.2,
+        irrigationChemicals: 0.1,
+        laborChem: 1.5,
+        laborLiving: 2.5,
+        waterUse: 7,
+        runoff: 4,
+        erosion: 4,
+        biodiversity: 4,
+        manureReturn: 2,
+        soilOrganicMatter: 1,
+        carbonTons: 1,
+        nutritionMult: 2,
+      },
     },
     regenerative: {
       id: "regenerative",
       name: "Zox regenerative",
       gross: 16,
       inputs: 0,
-      note: "No chem bill. Animals graze the cover; manure stays on the lot. Nutrition is 6× traditional — that is why the wait pays.",
+      note: "No chem bill. Animals graze the cover; manure stays on the lot. Nutrition is 6× traditional — that is why the wait pays. Net income per acre buys the next farm along the rail.",
+      ledger: {
+        fertilizer: 0,
+        syntheticNitrogen: 0,
+        insecticides: 0,
+        herbicides: 0,
+        fungicides: 0,
+        fossilFuel: 0,
+        purchasedSeed: 0,
+        irrigationChemicals: 0,
+        laborChem: 0,
+        laborLiving: 4,
+        waterUse: 4,
+        runoff: 1,
+        erosion: 1,
+        biodiversity: 9,
+        manureReturn: 5,
+        soilOrganicMatter: 4,
+        carbonTons: 3,
+        nutritionMult: 6,
+      },
     },
   };
 
@@ -262,7 +342,7 @@
       { id: "princeton", name: "Princeton Acre", x: 86, y: 33, order: 7 },
     ],
     goalCopy:
-      "Long-term goal: build the green rail from Detroit to Jersey City. Use LIC rent to buy farmland along the corridor, convert it over five seasons, then buy the next farm along the line. Mature farms light the rail solid.",
+      "Long-term goal: build the green rail from Detroit to Jersey City. Use LIC rent to buy farmland along the corridor, convert it over five seasons, then buy the next farm along the line. Mature farms and eco-villages light the rail solid across decades.",
   };
 
   const COPY = {
@@ -273,10 +353,10 @@
       "Song royalties already bought a green building in Long Island City. That city rent lands every season — you do not place it on this map.",
       "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. The dashed green line is the future rail.",
       "Loop: LIC capital buys a farm along the corridor → walk the farm → five-season regen → crops and rent buy the next parcel along the line. Mature farms sequester carbon and light rail segments solid.",
-      "Win by sequestering enough carbon in a single season and raising population health on 6× regenerative nutrition — before 18 seasons are up. Stay in the black.",
+      "Win by sequestering enough carbon in a single season and raising population health on 6× regenerative nutrition — across four decades (20 seasons). Stay in the black.",
     ],
     win: "The soil locked carbon this season, and regenerative food made the people healthier — 6× the nutrition of the old chem model. That is a village.",
-    loseTime: "Eighteen seasons and the corridor never hit the carbon and health marks. The books tell the story.",
+    loseTime: "Four decades and the corridor never hit the carbon and health marks. The books tell the story.",
     loseBroke: "The jar is empty. A town that cannot pay for seed does not last the winter.",
     loseNature: "The circle broke. Dust where the grass should be.",
     loseWaste: "Waste piled past the fence line. Nobody wants to sit down here.",

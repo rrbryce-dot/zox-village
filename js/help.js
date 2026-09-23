@@ -48,6 +48,7 @@
       regen: Zox.FARM_MODELS.regenerative,
       goal: Zox.GOAL,
       railLit: rail.lit,
+      villages: Zox.Sim.countVillages ? Zox.Sim.countVillages(state) : 0,
       railNeed: rail.need,
       railReady: rail.ready,
     };
@@ -251,7 +252,7 @@
       s.money +
       "). Health climbs because regenerative nutrition is " +
       (s.goal.nutritionFactor || 6) +
-      "× better than traditional — converting farms are about 2×. Soft loses: broke, waste disaster, or time out at season " +
+      "× better than traditional — converting farms are about 2×. Soft loses: broke, waste disaster, or time out after four decades (" +
       s.goal.seasons +
       ". Win score is mostly that season's carbon plus health (plus a bit for rail progress and leftover seasons). Rail lit " +
       s.railLit +
@@ -338,6 +339,28 @@
     );
   }
 
+  
+  function villageReply(s) {
+    return (
+      "Eco-villages come from the porch book — place one on a mature regenerative farm (tool Village, key 7). Cost $" +
+      ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.cost) || 52) +
+      ". They add people, boost Health / nutrition, and nudge rail readiness. Villages + mature farms are how the Detroit→Jersey City green rail comes alive. You have " +
+      (s.villages != null ? s.villages : "?") +
+      " village(s) now."
+    );
+  }
+
+  function decadeReply(s) {
+    const d = Zox.Sim.decadeInfo ? Zox.Sim.decadeInfo(s.season) : null;
+    return (
+      "Play spans four decades — " +
+      (Zox.GOAL.seasons || 20) +
+      " years — toward lighting the green rail. Each decade has five seasons (years). Converting a farm takes one decade of soil work. " +
+      (d ? "You are in " + d.label + ". " : "") +
+      "Win by sequestering enough carbon in a single season and raising Health on 6× regen nutrition before time runs out."
+    );
+  }
+
   function matchIntent(q) {
     const t = q.toLowerCase();
     if (/(money|broke|spend|jar|income|cash|earn|profit|next season|nextseason|no new|nothing|afford)/.test(t)) {
@@ -349,7 +372,9 @@
     if (/(lic|long island|royalt|city|capital|apartment)/.test(t)) return "lic";
     if (/(carbon|credit|sink|sequester)/.test(t)) return "carbon";
     if (/(health|nutrition|6×|6x|healthier)/.test(t)) return "health";
-    if (/(win|goal|score|people|waste|circle|table|season 18)/.test(t)) return "win";
+    if (/(village|eco-village|ecovillage)/.test(t)) return "village";
+    if (/(decade|decades|year 40|long.horizon|timeline)/.test(t)) return "decade";
+    if (/(win|goal|score|people|waste|circle|table|season 18|four decades)/.test(t)) return "win";
     if (/(creek|water|blue)/.test(t)) return "creek";
     if (/(look|inspect)/.test(t)) return "look";
     if (/(clear|bulldoze|demolish|refund)/.test(t)) return "clear";
@@ -367,6 +392,8 @@
     if (intent === "compare") return compareReply();
     if (intent === "carbon") return carbonReply(s);
     if (intent === "health") return healthReply(s);
+    if (intent === "village") return villageReply(s);
+    if (intent === "decade") return decadeReply(s);
     if (intent === "win") return winReply(s);
     if (intent === "place") return placeReply(s);
     if (intent === "look") return lookReply();
