@@ -180,7 +180,7 @@
     return (
       "Buy farmland for $" +
       s.farmCost +
-      " on the corridor map (deed markers along the dashed green rail). You then walk that farm — compost, power, rail, orchards, and homes go on its board. For five seasons the farm is converting. At maturity the chem bill hits zero and adjacent mature farms light the corridor rail solid. Loop: convert → buy the next farm along the line → light Detroit to Jersey City." +
+      " an acre. Click a mosaic square and the title deed pops — owner, acres, and price. Move the card from Don't buy it yet into Purchase only when the jar can cover it (apartment rent from Long Island City helps). You then walk that farm — compost, power, rail, orchards, and homes go on its board. For five seasons the farm is converting. At maturity the chem bill hits zero and neighboring rail squares light the corridor solid." +
       extra +
       (s.view === "farm" && s.farmName ? " You're on " + s.farmName + " now." : "") +
       " Farm models (M) puts Traditional vs Zox side by side."

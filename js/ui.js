@@ -55,6 +55,12 @@
       flash: "",
       boardKey: "",
       grazing: false,
+      deeds: [],
+      ownedFocus: null,
+      freshDeed: "",
+      shakeDeed: "",
+      deedAlert: "",
+      dragId: "",
     };
 
     function currentFarm() {
@@ -159,13 +165,13 @@
       flash(
         "Jar has $" +
           ui.state.money +
-          ". Farmland tool is ready — click the next deed along the rail ($" +
+          ". Click farmland squares to pull title deeds ($" +
           cost +
-          "). " +
+          " an acre), then move cards into Purchase. " +
           left +
-          " open parcel" +
+          " square" +
           (left === 1 ? "" : "s") +
-          " left."
+          " still for sale."
       );
       render();
     }
@@ -321,7 +327,7 @@
           buyBtn.hidden = !afford;
           if (afford) {
             buyBtn.textContent =
-              "Buy next deed ($" + Zox.BUILDINGS.farm.cost + ")";
+              "Choose a square ($" + Zox.BUILDINGS.farm.cost + ")";
           }
         }
         if (place) place.textContent = "Improvements on this farm";
@@ -333,11 +339,11 @@
         title.textContent = "Corridor map";
         sub.textContent = rail.ready
           ? "Green rail lit solid Detroit → Jersey City. Keep the settlement and the circle healthy."
-          : "Buy along the line, convert five seasons, buy the next. " +
+          : "Click a square for its title deed. Move the card to Purchase when the jar can cover it. " +
             rail.lit +
             "/" +
             rail.need +
-            " segments lit.";
+            " rail segments lit.";
         back.hidden = true;
         back.classList.remove("is-hot");
         back.textContent = "Back to map";
@@ -347,11 +353,11 @@
           buyBtnW.hidden = !affordW;
           if (affordW) {
             buyBtnW.textContent =
-              "Buy next deed ($" + Zox.BUILDINGS.farm.cost + ")";
+              "Choose a square ($" + Zox.BUILDINGS.farm.cost + ")";
           }
         }
         if (place) place.textContent = "What to place";
-        if (keys) keys.textContent = "Keys 1–2 pick tools. Click a deed to buy or walk it. Enter turns the season.";
+        if (keys) keys.textContent = "Click a square to pull its deed. Drag cards between the two columns. Enter turns the season.";
         if (meadow) meadow.textContent = "Meadow";
         if (legend) legend.hidden = true;
       }
@@ -404,7 +410,7 @@
             ? Zox.Sim.inspectParcel(ui.state, ui.selected.parcelId)
             : null;
         if (!look) {
-          inspectBox.innerHTML = `<p class="quiet">Click a deed along the dashed green rail to buy a farm, or a deed you already own to walk it. Long-term goal: light the rail Detroit → Jersey City.</p>`;
+          inspectBox.innerHTML = `<p class="quiet">Click a mosaic square. The title deed names the farmer, the acres, and the price. Water and city cores are not for sale. Move a card to Purchase only when the jar can cover it.</p>`;
         } else {
           inspectBox.innerHTML = `<h3>${look.title}</h3><ul>${look.lines.map((l) => `<li>${l}</li>`).join("")}</ul>`;
           if (look.farm) {
@@ -740,8 +746,10 @@
       renderMeters();
       renderToolbar();
       renderGrid();
+      renderDeeds();
       renderAside();
       renderEnd();
+      if (ui.view !== "world") hideParcelTip();
       const farm = currentFarm();
       if (farm) {
         const prog = Zox.Sim.farmProgress(farm);
@@ -749,7 +757,7 @@
       } else {
         const rail = Zox.Sim.railProgress(ui.state);
         if (ui.state.farms.length === 0) {
-          el("food-note").textContent = "Corridor map. Buy a farm along the rail.";
+          el("food-note").textContent = "Click a square. Its title deed pops on the table.";
         } else if (ui.state.population === 0) {
           el("food-note").textContent =
             ui.state.farms.length +
@@ -774,35 +782,385 @@
       render();
     }
 
-    function actOnParcel(parcelId) {
-      ui.selected = { parcelId: parcelId };
-      const farm = Zox.Sim.getFarmByParcel(ui.state, parcelId);
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function deedCost() {
+      return Zox.BUILDINGS.farm.cost;
+    }
+
+    function stagedSum(exceptId) {
+      let sum = 0;
+      const cost = deedCost();
+      const list = ui.deeds || [];
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].col === "buy" && list[i].id !== exceptId) sum += cost;
+      }
+      return sum;
+    }
+
+    function affordCheck(parcelId) {
+      const cost = deedCost();
+      const staged = stagedSum(parcelId);
+      const have = ui.state.money;
+      const need = staged + cost;
+      return {
+        ok: have >= need,
+        cost: cost,
+        staged: staged,
+        have: have,
+        need: need,
+        short: Math.max(0, need - have),
+        alone: have >= cost,
+      };
+    }
+
+    function rentHint(short) {
+      const rent = Zox.LIC.income;
+      const seasons = Math.max(1, Math.ceil(short / Math.max(1, rent)));
+      return (
+        "Apartment rent from the Long Island City building is $" +
+        rent +
+        " a season — about " +
+        seasons +
+        " season" +
+        (seasons === 1 ? "" : "s") +
+        " of that cash flow before the jar can cover this. Turn the season and let the rent land."
+      );
+    }
+
+    function shortfallText(check) {
+      if (check.staged > 0 && check.alone) {
+        return (
+          "This deed is $" +
+          check.cost +
+          ", and you could afford it by itself. Purchase already holds $" +
+          check.staged +
+          ", so together that is $" +
+          check.need +
+          ". The jar has $" +
+          check.have +
+          " — short $" +
+          check.short +
+          ". " +
+          rentHint(check.short)
+        );
+      }
+      return (
+        "Not enough cash for this deed. It costs $" +
+        check.cost +
+        " and the jar has $" +
+        check.have +
+        " — short $" +
+        check.short +
+        ". " +
+        rentHint(check.short)
+      );
+    }
+
+    function hideParcelTip() {
+      const tip = el("parcel-tip");
+      if (tip) tip.hidden = true;
+    }
+
+    function showParcelTip(id, x, y) {
+      const tip = el("parcel-tip");
+      if (!tip) return;
+      const parcel = Zox.Sim.getParcel(id);
+      if (!parcel) {
+        tip.hidden = true;
+        return;
+      }
+      const farm = Zox.Sim.getFarmByParcel(ui.state, id);
+      const owner = Zox.Parcels.deedOwner(parcel, farm);
+      const acres = parcel.acres || 1;
+      let text;
       if (farm) {
-        if (ui.tool === "inspect") {
-          flash("");
+        const prog = Zox.Sim.farmProgress(farm);
+        text =
+          farm.name +
+          " · owner " +
+          owner +
+          " · " +
+          acres +
+          " acre · " +
+          (prog.mature ? "regenerative" : "converting year " + prog.year + " of 5");
+      } else {
+        text = parcel.name + " · $" + deedCost() + " · " + acres + " acre · owner " + owner + " · click for the deed";
+      }
+      tip.textContent = text;
+      tip.hidden = false;
+      let left = x + 14;
+      let top = y + 18;
+      if (left > window.innerWidth - 280) left = Math.max(8, x - 250);
+      if (top > window.innerHeight - 40) top = Math.max(8, y - 36);
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+    }
+
+    function deedCardHTML(parcelId, col) {
+      const parcel = Zox.Sim.getParcel(parcelId);
+      if (!parcel) return "";
+      if (Zox.Sim.getFarmByParcel(ui.state, parcelId)) return "";
+      const owner = Zox.Parcels.deedOwner(parcel, null);
+      const cost = deedCost();
+      const check = affordCheck(parcelId);
+      let note;
+      if (col === "buy") {
+        note = "Ready to buy with the other cards in Purchase. Confirm to spend the cash.";
+      } else if (check.ok) {
+        note = check.staged
+          ? "The jar can cover this along with the $" + check.staged + " already in Purchase."
+          : "The jar can cover this deed.";
+      } else if (check.alone) {
+        note =
+          "Affordable alone ($" +
+          cost +
+          "). Purchase already holds $" +
+          check.staged +
+          " — together you are short $" +
+          check.short +
+          ".";
+      } else {
+        note =
+          "Short $" +
+          check.short +
+          ". Wait for apartment rent ($" +
+          Zox.LIC.income +
+          " a season) before this deed will clear.";
+      }
+      const pop = ui.freshDeed === parcelId ? " is-pop" : "";
+      const shake = ui.shakeDeed === parcelId ? " is-shake" : "";
+      const rail = parcel.spine ? `<em class="m-rail">On the rail</em>` : "";
+      const actions =
+        col === "buy"
+          ? `<button type="button" data-move="hold">Don't buy it yet</button>`
+          : `<button type="button" data-move="buy">Move to Purchase</button>`;
+      return (
+        `<article class="m-deed${pop}${shake}${parcel.spine ? " is-rail" : ""}" draggable="true" data-deed="${esc(parcel.id)}">` +
+        `<header class="m-band"><span>Title deed</span><strong>${esc(parcel.name)}</strong>${rail}</header>` +
+        `<div class="m-body">` +
+        `<p class="m-row"><span>Owner</span><b>${esc(owner)}</b></p>` +
+        `<p class="m-row m-acres"><span>Acres</span><b>${parcel.acres || 1}</b></p>` +
+        `<p class="m-row m-price"><span>Cost</span><b>$${cost}</b></p>` +
+        `<p class="m-note">${esc(note)}</p>` +
+        `</div>` +
+        `<footer class="m-actions">${actions}</footer>` +
+        `</article>`
+      );
+    }
+
+    function ownedCardHTML() {
+      const id = ui.ownedFocus;
+      if (!id) return "";
+      const parcel = Zox.Sim.getParcel(id);
+      const farm = parcel && Zox.Sim.getFarmByParcel(ui.state, id);
+      if (!parcel || !farm) return "";
+      const prog = Zox.Sim.farmProgress(farm);
+      const owner = Zox.Parcels.deedOwner(parcel, farm);
+      const status = prog.mature ? "Regenerative — chem bill $0" : "Converting, year " + prog.year + " of 5";
+      return (
+        `<article class="m-deed is-yours">` +
+        `<header class="m-band"><span>Title deed</span><strong>${esc(farm.name)}</strong></header>` +
+        `<div class="m-body">` +
+        `<p class="m-row"><span>Owner</span><b>${esc(owner)}</b></p>` +
+        `<p class="m-row m-acres"><span>Acres</span><b>${parcel.acres || 1}</b></p>` +
+        `<p class="m-row"><span>Status</span><b>${esc(status)}</b></p>` +
+        `</div>` +
+        `<footer class="m-actions"><button type="button" data-walk="${esc(farm.id)}">Walk this farm</button></footer>` +
+        `</article>`
+      );
+    }
+
+    function renderDeeds() {
+      const board = el("deed-board");
+      if (!board) return;
+      const world = ui.view === "world";
+      board.hidden = !world;
+      if (!world) return;
+      const live = [];
+      for (let i = 0; i < ui.deeds.length; i++) {
+        if (!Zox.Sim.getFarmByParcel(ui.state, ui.deeds[i].id)) live.push(ui.deeds[i]);
+      }
+      ui.deeds = live;
+      const hold = el("deed-hold");
+      const buy = el("deed-buy");
+      let holdHtml = "";
+      let buyHtml = "";
+      let buyCount = 0;
+      for (let i = 0; i < ui.deeds.length; i++) {
+        const card = ui.deeds[i];
+        const html = deedCardHTML(card.id, card.col);
+        if (card.col === "buy") {
+          buyHtml += html;
+          buyCount += 1;
+        } else holdHtml += html;
+      }
+      if (hold) {
+        hold.innerHTML =
+          holdHtml || `<p class="deed-empty">Click a square on the map. The deed waits here until you mean to buy it.</p>`;
+      }
+      if (buy) {
+        buy.innerHTML =
+          buyHtml || `<p class="deed-empty">Drag a card here, or use Move to Purchase, when you intend to buy it.</p>`;
+      }
+      const owned = el("deed-owned");
+      if (owned) {
+        const html = ownedCardHTML();
+        owned.hidden = !html;
+        owned.innerHTML = html;
+      }
+      const jar = el("deed-jar");
+      if (jar) {
+        jar.textContent =
+          "Jar $" +
+          ui.state.money +
+          " · apartment rent $" +
+          Zox.LIC.income +
+          " each season · $" +
+          deedCost() +
+          " an acre";
+      }
+      const btn = el("deed-confirm");
+      if (btn) {
+        const total = buyCount * deedCost();
+        btn.disabled = buyCount === 0 || ui.state.money < total || ui.state.status !== "playing";
+        btn.textContent = buyCount ? "Purchase " + buyCount + " · $" + total : "Purchase";
+      }
+      const alert = el("deed-alert");
+      if (alert) {
+        alert.hidden = !ui.deedAlert;
+        alert.textContent = ui.deedAlert || "";
+      }
+    }
+
+    function addDeed(parcelId) {
+      const parcel = Zox.Sim.getParcel(parcelId);
+      if (!parcel) return;
+      const farm = Zox.Sim.getFarmByParcel(ui.state, parcelId);
+      ui.selected = { parcelId: parcelId };
+      ui.shakeDeed = "";
+      if (farm) {
+        ui.ownedFocus = parcelId;
+        ui.freshDeed = "";
+        ui.deedAlert = "";
+        render();
+        return;
+      }
+      ui.ownedFocus = null;
+      let found = false;
+      for (let i = 0; i < ui.deeds.length; i++) {
+        if (ui.deeds[i].id === parcelId) found = true;
+      }
+      if (!found) ui.deeds.push({ id: parcelId, col: "hold" });
+      ui.freshDeed = parcelId;
+      ui.deedAlert = "";
+      flash("");
+      render();
+      const node = document.querySelector('.m-deed[data-deed="' + parcelId + '"]');
+      if (node && node.scrollIntoView) node.scrollIntoView({ block: "nearest" });
+    }
+
+    function tryMoveDeed(parcelId, col) {
+      let found = null;
+      for (let i = 0; i < ui.deeds.length; i++) {
+        if (ui.deeds[i].id === parcelId) found = ui.deeds[i];
+      }
+      if (!found) return;
+      if (Zox.Sim.getFarmByParcel(ui.state, parcelId)) return;
+      ui.freshDeed = "";
+      if (col === "buy") {
+        const check = affordCheck(parcelId);
+        if (!check.ok) {
+          ui.shakeDeed = parcelId;
+          ui.deedAlert = shortfallText(check);
+          flash(ui.deedAlert);
           render();
           return;
         }
-        enterFarm(farm.id, false);
-        return;
-      }
-      if (ui.tool === "inspect") {
+        found.col = "buy";
+        ui.shakeDeed = "";
+        ui.deedAlert = "";
         flash("");
-        render();
-        return;
+      } else {
+        found.col = "hold";
+        ui.shakeDeed = "";
+        ui.deedAlert = "";
       }
-      if (ui.tool === "farm") {
-        const res = Zox.Sim.buyParcel(ui.state, parcelId);
-        flash(res.ok ? "" : res.why);
-        if (res.ok && res.enter) {
-          enterFarm(res.enter, true);
-          return;
-        }
-        render();
-        return;
-      }
-      flash("Improvements go on a farm. Buy a parcel first.");
       render();
+    }
+
+    function confirmDeeds() {
+      const ids = [];
+      for (let i = 0; i < ui.deeds.length; i++) {
+        if (ui.deeds[i].col === "buy") ids.push(ui.deeds[i].id);
+      }
+      if (!ids.length) {
+        ui.deedAlert = "Move a deed into Purchase first. Nothing is bought until you confirm.";
+        flash(ui.deedAlert);
+        render();
+        return;
+      }
+      const cost = deedCost();
+      const total = ids.length * cost;
+      if (ui.state.money < total) {
+        ui.deedAlert = shortfallText({
+          cost: cost,
+          staged: Math.max(0, total - cost),
+          have: ui.state.money,
+          need: total,
+          short: total - ui.state.money,
+          alone: ui.state.money >= cost,
+        });
+        flash(ui.deedAlert);
+        render();
+        return;
+      }
+      const names = [];
+      const done = {};
+      for (let i = 0; i < ids.length; i++) {
+        const res = Zox.Sim.buyParcel(ui.state, ids[i]);
+        if (!res.ok) {
+          ui.deedAlert = res.why || "That deed did not clear.";
+          flash(ui.deedAlert);
+          break;
+        }
+        done[ids[i]] = true;
+        const parcel = Zox.Sim.getParcel(ids[i]);
+        names.push(parcel ? parcel.name : ids[i]);
+      }
+      const next = [];
+      for (let i = 0; i < ui.deeds.length; i++) {
+        if (!done[ui.deeds[i].id]) next.push(ui.deeds[i]);
+      }
+      ui.deeds = next;
+      ui.freshDeed = "";
+      ui.shakeDeed = "";
+      if (names.length) {
+        for (let i = 0; i < ids.length; i++) {
+          if (done[ids[i]]) {
+            ui.ownedFocus = ids[i];
+            break;
+          }
+        }
+        ui.deedAlert = "";
+        flash(
+          "Purchased " +
+            names.join(", ") +
+            ". Those squares are yours — copper while they convert, bright green once regenerative."
+        );
+      }
+      ui.boardKey = "";
+      render();
+    }
+
+    function actOnParcel(parcelId) {
+      hideParcelTip();
+      addDeed(parcelId);
     }
 
     function actOnTile(r, c) {
@@ -862,9 +1220,7 @@
         buyNext.hidden = !afford;
         if (afford) {
           buyNext.textContent =
-            "Buy farm #" +
-            (ui.state.farms.length + 1) +
-            " on the map ($" +
+            "Pull the next deed ($" +
             Zox.BUILDINGS.farm.cost +
             ")";
         }
@@ -910,6 +1266,11 @@
       ui.hover = null;
       ui.tool = "farm";
       ui.boardKey = "";
+      ui.deeds = [];
+      ui.ownedFocus = null;
+      ui.freshDeed = "";
+      ui.shakeDeed = "";
+      ui.deedAlert = "";
       flash("");
       hideSeasonWins();
       el("intro").hidden = true;
@@ -936,12 +1297,10 @@
       el("grid").addEventListener("pointerover", (e) => {
         const parcel = e.target.closest("[data-parcel]");
         if (parcel) {
-          const id = parcel.getAttribute("data-parcel");
-          if (ui.hover && ui.hover.parcelId === id) return;
-          ui.hover = { parcelId: id };
-          renderGrid();
+          showParcelTip(parcel.getAttribute("data-parcel"), e.clientX, e.clientY);
           return;
         }
+        hideParcelTip();
         const btn = e.target.closest("[data-r]");
         if (!btn) return;
         const r = Number(btn.dataset.r);
@@ -951,10 +1310,70 @@
         renderGrid();
       });
 
-      el("grid").addEventListener("pointerleave", () => {
-        ui.hover = null;
-        renderGrid();
+      el("grid").addEventListener("pointermove", (e) => {
+        const parcel = e.target.closest("[data-parcel]");
+        if (!parcel) return;
+        showParcelTip(parcel.getAttribute("data-parcel"), e.clientX, e.clientY);
       });
+
+      el("grid").addEventListener("pointerleave", () => {
+        hideParcelTip();
+        if (ui.view !== "world") {
+          ui.hover = null;
+          renderGrid();
+        }
+      });
+
+      const deedBoard = el("deed-board");
+      let suppressDrag = false;
+      if (deedBoard) {
+        deedBoard.addEventListener("mousedown", (e) => {
+          suppressDrag = !!e.target.closest("button");
+        });
+        deedBoard.addEventListener("dragstart", (e) => {
+          const card = e.target.closest(".m-deed");
+          if (!card || suppressDrag || !card.getAttribute("data-deed")) {
+            e.preventDefault();
+            return;
+          }
+          ui.dragId = card.getAttribute("data-deed");
+          e.dataTransfer.setData("text/plain", ui.dragId);
+          e.dataTransfer.effectAllowed = "move";
+          card.classList.add("is-dragging");
+        });
+        deedBoard.addEventListener("dragend", () => {
+          ui.dragId = "";
+          const marked = deedBoard.querySelectorAll(".is-dragging, .is-over");
+          for (let i = 0; i < marked.length; i++) marked[i].classList.remove("is-dragging", "is-over");
+        });
+        deedBoard.addEventListener("dragover", (e) => {
+          const col = e.target.closest("[data-col]");
+          if (!col) return;
+          e.preventDefault();
+          const cols = deedBoard.querySelectorAll(".deed-col");
+          for (let i = 0; i < cols.length; i++) cols[i].classList.toggle("is-over", cols[i] === col || cols[i].contains(col));
+        });
+        deedBoard.addEventListener("drop", (e) => {
+          const col = e.target.closest("[data-col]");
+          if (!col) return;
+          e.preventDefault();
+          const id = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || ui.dragId;
+          const which = col.getAttribute("data-col");
+          if (id && which) tryMoveDeed(id, which);
+        });
+        deedBoard.addEventListener("click", (e) => {
+          const move = e.target.closest("[data-move]");
+          if (move) {
+            const card = move.closest("[data-deed]");
+            if (card) tryMoveDeed(card.getAttribute("data-deed"), move.getAttribute("data-move"));
+            return;
+          }
+          const walk = e.target.closest("[data-walk]");
+          if (walk) enterFarm(walk.getAttribute("data-walk"), false);
+        });
+      }
+      const deedConfirm = el("deed-confirm");
+      if (deedConfirm) deedConfirm.addEventListener("click", confirmDeeds);
 
       el("next-season").addEventListener("click", nextSeason);
       const seasonOk = el("season-win-ok");

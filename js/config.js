@@ -32,7 +32,7 @@
       youngNature: 0,
       youngWaste: 1,
       youngCredits: 1,
-      hint: "Buy a parcel on the corridor map with LIC capital. You walk that farm next. Soil takes five years to drop the chem bill.",
+      hint: "Click a mosaic square. Its title deed pops on the table. Move the card to Purchase when the jar can cover it — $48 an acre. Soil takes five years to drop the chem bill.",
     },
     solar: {
       id: "solar",
@@ -105,7 +105,7 @@
   ];
 
   const WORLD_TOOLS = [
-    { id: "inspect", name: "Look", kind: "tool", hint: "Read a parcel. Click a farm you already bought to walk the fields." },
+    { id: "inspect", name: "Look", kind: "tool", hint: "Read a square. A deed card shows the owner, the acres, and the price. Walk a farm you already bought from its card." },
     { id: "farm", kind: "build" },
   ];
 
@@ -389,7 +389,8 @@
       { x: 861.3, y: 449.4 },
       { x: 912.9, y: 402.3 },
     ],
-    parcels: [
+    /* Named rail squares. parcels.js snaps each one onto the mosaic cell underneath. */
+    anchors: [
       { id: "monroe", name: "Monroe Flat", mapLabel: "Monroe", x: 84.4, y: 254.8, order: 0, lx: 108, ly: 244, anchor: "start", vdx: -16, vdy: -14 },
       { id: "sandusky", name: "Sandusky Acre", mapLabel: "Sandusky", x: 145.8, y: 313.1, order: 1, lx: 146, ly: 338, anchor: "middle", vdx: 14, vdy: -14 },
       { id: "erie", name: "Erie Field", mapLabel: "Erie", x: 278.2, y: 297, order: 2, lx: 298, ly: 314, anchor: "start", vdx: -16, vdy: -12 },
@@ -412,7 +413,7 @@
       { text: "NYC", x: 954, y: 356, anchor: "end", kind: "minor" },
     ],
     goalCopy:
-      "Long-term goal: build the green rail from Detroit to Jersey City across four decades. LIC rent and crop net buy farmland along the line. Five seasons convert a farm; mature farms and eco-villages light the rail solid.",
+      "Long-term goal: build the green rail from Detroit to Jersey City across four decades. Every farmland square can be bought — pull its title deed, then move the card to Purchase when the jar can cover it. Five seasons convert a farm; mature farms on the named rail squares light the line solid.",
   };
 
   const COPY = {
@@ -421,8 +422,8 @@
     introTitle: "LIC rent. Corridor farms. Carbon + health win.",
     intro: [
       "Song royalties already bought a green building in Long Island City. That city rent lands every season — you do not place it on this map.",
-      "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. The dashed green line is the future rail.",
-      "Loop: opening capital buys the first deeds → walk the farm → five-season regen → net income buys the next parcel. Mature farms sequester carbon. Eco-villages beside them boost health and put stations on the rail.",
+      "This board is the aerial corridor from Detroit down toward Toledo and east across to Jersey City. Every farmland square on the mosaic is for sale. The dashed green line is the future rail.",
+      "Loop: click a square → its title deed pops → move the card to Purchase when apartment rent and crop net can cover it → walk the farm → five-season regen. Mature farms sequester carbon. Named squares along the rail light solid. Eco-villages boost health and put stations on the line.",
       "Win by sequestering enough carbon in a single season and raising population health on 6× regenerative nutrition. The corridor is four decades (20 seasons). Decade 1 converts soil; the carbon gate needs a run of mature acres after that. Stay in the black.",
     ],
     win: "The soil locked enough carbon this season, and regenerative food made people healthier — 6× the nutrition of the chem model. The rail is a longer story, but this corridor is a village.",
@@ -448,7 +449,55 @@
   Zox.LEDGER_SPEC = LEDGER_SPEC;
   Zox.MAP = MAP;
   Zox.FARM_MAP = FARM_MAP;
+  const PLAYER = { name: "Jake Westbrook" };
+
+  /* Sellers on for-sale deeds. Stable per square, not a second economy. */
+  const FARMERS = [
+    "Helen Marsh",
+    "Otto Briggs",
+    "Clara Dunbar",
+    "Frank Kowalski",
+    "Ida Pell",
+    "Samuel Hart",
+    "Ruth Nowak",
+    "Ed Yoder",
+    "Mae Brennan",
+    "Louis Ferris",
+    "Ada Kruk",
+    "Will Schumacher",
+    "Nora Bennett",
+    "Carl Vogel",
+    "Esther Pike",
+    "Joe Mancini",
+    "Lila Trent",
+    "Hank Doyle",
+    "Pearl Olson",
+    "Mike Szabo",
+    "Cora Walsh",
+    "Ben Holtz",
+    "Iris Penner",
+    "Tom Gallagher",
+    "Nellie Frost",
+    "Ray Delgado",
+    "Hattie Bloom",
+    "Sid Kramer",
+    "Vera Lang",
+    "Paul Reznik",
+    "Dottie Shaw",
+    "Gene Pavlov",
+    "Mina Cho",
+    "Archie Quinn",
+    "Bess Harlow",
+    "Ned Okonkwo",
+    "Faye Lind",
+    "Gus Moretti",
+    "Willa Pratt",
+    "Hugh Daley",
+  ];
+
   Zox.FARM_NAMES = FARM_NAMES;
   Zox.CORRIDOR = CORRIDOR;
   Zox.COPY = COPY;
+  Zox.PLAYER = PLAYER;
+  Zox.FARMERS = FARMERS;
 })(window);

@@ -30,11 +30,29 @@
   }
 
   function getParcel(parcelId) {
-    const list = Zox.CORRIDOR.parcels;
+    if (!parcelId) return null;
+    const map = Zox.CORRIDOR && Zox.CORRIDOR.byId;
+    if (map && map[parcelId]) return map[parcelId];
+    const list = (Zox.CORRIDOR && Zox.CORRIDOR.parcels) || [];
     for (let i = 0; i < list.length; i++) {
       if (list[i].id === parcelId) return list[i];
     }
     return null;
+  }
+
+  function spineParcels() {
+    if (Zox.CORRIDOR && Zox.CORRIDOR.spine && Zox.CORRIDOR.spine.length) {
+      return Zox.CORRIDOR.spine;
+    }
+    const list = (Zox.CORRIDOR && Zox.CORRIDOR.parcels) || [];
+    const spine = [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].spine) spine.push(list[i]);
+    }
+    spine.sort(function (a, b) {
+      return a.order - b.order;
+    });
+    return spine;
   }
 
   function resolveFarm(state, target) {
@@ -378,7 +396,7 @@
         afford: 0,
         cost: cost,
         need: 0,
-        text: "Every deed on the corridor is yours. Mature them, add villages, and light the rest of the rail.",
+        text: "Every square on the corridor is yours. Mature them, add villages, and light the rest of the rail.",
       };
     }
     if (afford >= 1) {
@@ -393,7 +411,7 @@
           money +
           " buys " +
           n +
-          " more deed" +
+          " more square" +
           (n === 1 ? "" : "s") +
           " at $" +
           cost +
@@ -411,7 +429,7 @@
       text:
         "Need $" +
         need +
-        " more for the next deed ($" +
+        " more for the next square ($" +
         cost +
         ")." +
         (seasons ? " About " + seasons + " season" + (seasons === 1 ? "" : "s") + " of income." : ""),
@@ -589,7 +607,7 @@
    * A segment between parcel i and i+1 lights when both farms are owned and mature.
    */
   function railProgress(state) {
-    const parcels = Zox.CORRIDOR.parcels.slice().sort((a, b) => a.order - b.order);
+    const parcels = spineParcels().slice().sort((a, b) => a.order - b.order);
     const owned = [];
     const mature = [];
     for (let i = 0; i < parcels.length; i++) {
@@ -661,7 +679,7 @@
       log: [
         {
           season: 1,
-          text: "Opening capital covers the first deeds. Five seasons convert a farm. After that, net income buys the line east — four decades toward the rail.",
+          text: "Opening capital covers the first two squares. Pull a title deed off the mosaic, then move it to Purchase when the jar can cover it.",
         },
       ],
     };
@@ -707,7 +725,7 @@
     if (state.status !== "playing") return { ok: false, why: "This corridor already found its ending." };
     const parcel = getParcel(parcelId);
     if (!parcel) return { ok: false, why: "That deed is not on the corridor." };
-    if (getFarmByParcel(state, parcelId)) return { ok: false, why: "You already hold that deed. Click to walk the farm." };
+    if (getFarmByParcel(state, parcelId)) return { ok: false, why: "You already hold that deed. Open the card and walk the farm." };
     const def = Zox.BUILDINGS.farm;
     if (state.money < def.cost) {
       return { ok: false, why: "Need $" + def.cost + ". The jar has $" + state.money + "." };
@@ -740,11 +758,15 @@
     pushLog(
       state,
       farm.name +
-        " is yours along the corridor. Walk the fields. " +
+        " is yours — 1 acre, $" +
+        def.cost +
+        " from the jar." +
+        (parcel.spine ? " It sits on the green rail." : "") +
+        " Walk the fields. Rail farms mature " +
         rail.matureCount +
         "/" +
         rail.total +
-        " farms mature toward the green rail."
+        "."
     );
     return { ok: true, why: "", enter: farm.id };
   }
@@ -755,10 +777,10 @@
       return { ok: false, why: "The LIC building is in Long Island City, not on this corridor." };
     }
     if (buildingId === "farm") {
-      return { ok: false, why: "Buy a parcel marker on the corridor map — not a grid tile." };
+      return { ok: false, why: "Buy a square on the corridor map — pull its title deed first." };
     }
     if (!farmId) {
-      return { ok: false, why: "Improvements go on a farm. Buy a parcel, then walk the fields." };
+      return { ok: false, why: "Improvements go on a farm. Buy a square, then walk the fields." };
     }
     const farm = getFarm(state, farmId);
     if (!farm) return { ok: false, why: "That farm is not on the books." };
@@ -778,7 +800,7 @@
 
   function place(state, r, c, buildingId, farmId) {
     if (buildingId === "farm") {
-      return { ok: false, why: "Buy a parcel marker on the corridor map." };
+      return { ok: false, why: "Buy a square on the corridor map." };
     }
     const check = canPlace(state, r, c, buildingId, farmId);
     if (!check.ok) return check;
@@ -843,13 +865,16 @@
     if (!parcel) return null;
     const farm = getFarmByParcel(state, parcelId);
     const cost = Zox.BUILDINGS.farm.cost;
+    const owner = Zox.Parcels && Zox.Parcels.deedOwner ? Zox.Parcels.deedOwner(parcel, farm) : "";
+    const acres = parcel.acres || 1;
     if (farm) {
       const books = farmBooks(farm);
       const bits = [
-        "Deed along the Detroit → Jersey City corridor",
+        "Owner " + owner,
+        acres + " acre" + (acres === 1 ? "" : "s"),
         books.mature ? "Zox regenerative — no chem bill." : books.label,
         "Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net,
-        "Click to walk this farm. Improvements stay on its board.",
+        "Open the deed card and walk this farm. Improvements stay on its board.",
       ];
       return { parcelId, parcel, farm, title: farm.name, lines: bits, owned: true };
     }
@@ -859,9 +884,12 @@
       farm: null,
       title: parcel.name,
       lines: [
-        "Open deed along the future green rail",
-        "Costs $" + cost + " — LIC capital buys farmland here",
-        "Buy it, walk the farm, convert five seasons, then buy the next along the line",
+        "Owner " + owner + " — for sale",
+        acres + " acre · $" + cost,
+        parcel.spine
+          ? "Named square on the green rail. Mature it and the line can light."
+          : "Farmland square. Pull the title deed, then move the card to Purchase.",
+        "Apartment rent from Long Island City helps the jar cover the next deed.",
       ],
       owned: false,
     };
