@@ -2803,3 +2803,295 @@ h1 {
       "board";
   }
 }
+
+/* Mosaic squares + Monopoly title deeds */
+.board-split {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+}
+.board-split > #grid {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.deed-board {
+  width: 100%;
+  flex: 0 0 248px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.06), transparent 40%),
+    #1b4332;
+  color: #f6f1e4;
+  border-radius: 10px;
+  padding: 8px;
+  border: 2px solid #0e2a1c;
+  box-shadow: inset 0 0 0 1px rgba(244, 234, 211, 0.12);
+}
+.deed-board[hidden] { display: none; }
+.deed-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: #f6f1e4;
+  font-family: Georgia, "Palatino Linotype", Palatino, serif;
+}
+.deed-jar {
+  margin: 2px 0 6px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: #d7e6c8;
+}
+.deed-alert {
+  margin: 0 0 6px;
+  padding: 8px;
+  background: #fff4f0;
+  color: #7a1e12;
+  border: 2px solid #c4492a;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.deed-owned { margin-bottom: 6px; }
+.deed-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.deed-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(246, 241, 228, 0.4);
+  border-radius: 8px;
+  padding: 6px;
+}
+.deed-col.is-buy {
+  border-style: solid;
+  border-color: #d4b15a;
+}
+.deed-col.is-over {
+  background: rgba(212, 177, 90, 0.22);
+}
+.deed-col h3 {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  color: #f6f1e4;
+  font-family: Georgia, "Palatino Linotype", Palatino, serif;
+}
+.deed-stack {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.deed-empty {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #d7e6c8;
+}
+.m-deed {
+  background: #fbf6e8;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+  border-radius: 3px;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  font-family: Georgia, "Palatino Linotype", Palatino, serif;
+  max-width: 230px;
+}
+.m-deed.is-dragging { opacity: 0.55; }
+.m-deed.is-pop { animation: deed-pop 0.35s ease; }
+.m-deed.is-shake { animation: deed-shake 0.42s ease; }
+@keyframes deed-pop {
+  from { transform: translateY(8px) scale(0.94); }
+}
+@keyframes deed-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.m-band {
+  background: #c4a15a;
+  color: #1a1a1a;
+  padding: 6px 6px 5px;
+  text-align: center;
+  border-bottom: 2px solid #1a1a1a;
+}
+.m-band span {
+  display: block;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.m-band strong {
+  display: block;
+  font-size: 0.84rem;
+  line-height: 1.15;
+}
+.m-rail {
+  display: inline-block;
+  margin-top: 3px;
+  font-style: normal;
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #1a1a1a;
+  color: #f4e7b8;
+  padding: 1px 4px;
+}
+.m-body { padding: 6px 6px 2px; }
+.m-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 3px;
+}
+.m-row span {
+  color: #5c5346;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.58rem;
+}
+.m-row b {
+  font-size: 0.78rem;
+  text-align: right;
+}
+.m-acres b,
+.m-price b { font-size: 1.2rem; line-height: 1; }
+.m-price b { color: #8d1d1d; }
+.m-note {
+  margin: 4px 0 6px;
+  font-size: 0.62rem;
+  line-height: 1.3;
+  color: #3d3830;
+  font-family: "Segoe UI", sans-serif;
+}
+.m-actions { display: flex; padding: 0 6px 6px; }
+.m-actions button {
+  flex: 1;
+  font: 700 0.66rem/1.2 "Segoe UI", sans-serif;
+  padding: 5px 4px;
+  border-radius: 4px;
+  border: 1px solid #1a1a1a;
+  background: #fff;
+  cursor: pointer;
+}
+.m-actions button:hover { background: #f3e6b8; }
+.m-deed.is-yours .m-band { background: #1f8a4c; }
+.m-deed.is-yours .m-band span,
+.m-deed.is-yours .m-band strong { color: #f4fff6; }
+.deed-col.is-buy #deed-confirm,
+#deed-confirm {
+  margin-top: 6px;
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 7px 4px;
+}
+.lot-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.lot-key i {
+  width: 11px;
+  height: 11px;
+  border: 1px solid #fff6e8;
+  border-radius: 2px;
+  display: inline-block;
+}
+.sw-own { background: #ff4d00; }
+.sw-regen { background: #39f5a0; }
+.parcel-tip {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  background: #1c2416;
+  color: #f4ead3;
+  border: 1px solid #e2c56a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 260px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.corridor-map image,
+.corridor-map .rail-case,
+.corridor-map .rail-future,
+.corridor-map .rail-lit {
+  pointer-events: none;
+}
+.corridor-map .parcel-lot {
+  cursor: pointer;
+}
+.corridor-map .parcel-lot.is-open {
+  fill: rgba(255, 252, 240, 0.05);
+  stroke: rgba(255, 250, 235, 0.78);
+  stroke-width: 0.7;
+}
+.corridor-map .parcel-lot.is-spine.is-open {
+  stroke: rgba(255, 250, 220, 0.95);
+  stroke-width: 0.9;
+}
+.corridor-map .parcel-lot.is-open:hover,
+.corridor-map.is-buying .parcel-lot.is-open:hover {
+  fill: rgba(255, 236, 170, 0.55);
+  stroke: #fff6d2;
+  stroke-width: 1.25;
+}
+.corridor-map .parcel-lot.is-held {
+  fill: rgba(240, 196, 74, 0.5);
+  stroke: #fff1c2;
+  stroke-width: 1.2;
+}
+.corridor-map .parcel-lot.is-staged {
+  fill: rgba(120, 196, 110, 0.48);
+  stroke: #f3ffd2;
+  stroke-width: 1.3;
+}
+.corridor-map .parcel-lot.is-owned {
+  fill: #ff4d00;
+  stroke: #fff6e8;
+  stroke-width: 1.5;
+  fill-opacity: 1;
+  filter: drop-shadow(0 0 1.4px #ff4d00);
+}
+.corridor-map .parcel-lot.is-y3,
+.corridor-map .parcel-lot.is-y4 {
+  fill: #f0a01a;
+}
+.corridor-map .parcel-lot.is-y5 {
+  fill: #e4c84a;
+  stroke: #5c4310;
+}
+.corridor-map .parcel-lot.is-mature {
+  fill: #39f5a0;
+  stroke: #04150e;
+  stroke-width: 1.7;
+  fill-opacity: 1;
+  filter: drop-shadow(0 0 1.6px #39f5a0);
+}
+.corridor-map .parcel-lot.is-picked {
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+@media (max-width: 1180px) {
+  .deed-board { flex-basis: 220px; }
+  .corridor-stage { width: auto !important; min-width: 0 !important; }
+  .corridor-map { width: 100% !important; height: auto !important; }
+}

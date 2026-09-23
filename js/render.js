@@ -31,8 +31,9 @@
       for (let i = 0; i < farms.length; i++) {
         key += farms[i].parcelId + "A" + (farms[i].regenAge || 0) + ";";
       }
-      if (ui.selected && ui.selected.parcelId) key += "S" + ui.selected.parcelId;
-      if (ui.hover && ui.hover.parcelId) key += "H" + ui.hover.parcelId;
+      const deeds = (ui && ui.deeds) || [];
+      for (let d = 0; d < deeds.length; d++) key += deeds[d].id + deeds[d].col + ";";
+      if (ui.ownedFocus) key += "O" + ui.ownedFocus;
       if (ui.grazing) key += "G1";
       key += "V" + Zox.Sim.countVillages(ui.state);
       key += "T" + (ui.tool || "");
@@ -423,9 +424,15 @@
     const litPaths = [];
     for (let i = 0; i < rail.segments.length; i++) {
       if (!rail.segments[i].lit) continue;
-      const a = C.parcels.find((p) => p.id === rail.segments[i].from);
-      const b = C.parcels.find((p) => p.id === rail.segments[i].to);
-      if (a && b) litPaths.push("M " + a.x + " " + a.y + " L " + b.x + " " + b.y);
+      const a = (C.spine || C.parcels || []).find((p) => p.id === rail.segments[i].from);
+      const b = (C.spine || C.parcels || []).find((p) => p.id === rail.segments[i].to);
+      if (a && b) {
+        const ax = a.railX != null ? a.railX : a.x;
+        const ay = a.railY != null ? a.railY : a.y;
+        const bx = b.railX != null ? b.railX : b.x;
+        const by = b.railY != null ? b.railY : b.y;
+        litPaths.push("M " + ax + " " + ay + " L " + bx + " " + by);
+      }
     }
 
     const vw = (C.view && C.view.w) || 960;
@@ -449,49 +456,64 @@
       )
       .join("");
 
-    const parcels = C.parcels
-      .map((parcel) => {
-        const farm = Zox.Sim.getFarmByParcel(ui.state, parcel.id);
-        const owned = !!farm;
-        const mature = owned && Zox.Sim.farmMature(farm);
-        const hasVillage = owned && farm.tiles && Zox.Map.tilesOf(farm.tiles, "village").length > 0;
-        const prog = owned ? Zox.Sim.farmProgress(farm) : null;
-        const sel = ui.selected && ui.selected.parcelId === parcel.id;
-        const hov = ui.hover && ui.hover.parcelId === parcel.id;
-        let cls = "corridor-parcel";
-        if (owned) cls += mature ? " is-mature" : " is-owned";
-        else cls += " is-open";
-        if (hasVillage) cls += " has-village";
-        if (sel) cls += " is-picked";
-        if (hov) cls += " is-hover";
-        if (!owned && ui.tool === "farm" && ui.state.money >= cost) cls += " can-buy";
-        if (!owned && ui.tool === "farm" && ui.state.money < cost) cls += " no-buy";
-        const label = owned
-          ? farm.name + (mature ? " (regen)" : " (year " + prog.year + " of 5)")
-          : parcel.name + " — $" + cost;
-        const badgeText = owned ? (mature ? "5/5" : prog.year + "/5") : "$" + cost;
-        const shown = parcel.mapLabel || parcel.name;
-        const vx = parcel.x + (parcel.vdx || 16);
-        const vy = parcel.y + (parcel.vdy || -16);
-        const village = hasVillage
-          ? `<g class="village-pin" transform="translate(${vx} ${vy})" aria-hidden="true">` +
-            `<circle class="village-halo" r="8" fill="none" stroke="#c9e86a" stroke-width="0.8"/>` +
+    const held = {};
+    const staged = {};
+    const deeds = ui.deeds || [];
+    for (let d = 0; d < deeds.length; d++) {
+      if (deeds[d].col === "buy") staged[deeds[d].id] = true;
+      else held[deeds[d].id] = true;
+    }
+
+    const parcelList = C.parcels || [];
+    const lotParts = [];
+    const labelParts = [];
+    const pinParts = [];
+    for (let i = 0; i < parcelList.length; i++) {
+      const parcel = parcelList[i];
+      const farm = Zox.Sim.getFarmByParcel(ui.state, parcel.id);
+      const owned = !!farm;
+      const mature = owned && Zox.Sim.farmMature(farm);
+      const hasVillage = owned && farm.tiles && Zox.Map.tilesOf(farm.tiles, "village").length > 0;
+      const prog = owned ? Zox.Sim.farmProgress(farm) : null;
+      const sel = ui.selected && ui.selected.parcelId === parcel.id;
+      let cls = "corridor-parcel parcel-lot";
+      if (owned) cls += mature ? " is-owned is-mature" : " is-owned is-y" + prog.year;
+      else cls += " is-open";
+      if (hasVillage) cls += " has-village";
+      if (parcel.spine) cls += " is-spine";
+      if (sel) cls += " is-picked";
+      if (!owned && held[parcel.id]) cls += " is-held";
+      if (!owned && staged[parcel.id]) cls += " is-staged";
+      const seller = Zox.Parcels && Zox.Parcels.deedOwner ? Zox.Parcels.deedOwner(parcel, farm) : "";
+      const label = owned
+        ? farm.name + (mature ? " · regenerative · " : " · converting " + prog.year + "/5 · ") + seller
+        : parcel.name + " · $" + cost + " · " + (parcel.acres || 1) + " acre · " + seller;
+      const rx = parcel.rx != null ? parcel.rx : parcel.x - 6;
+      const ry = parcel.ry != null ? parcel.ry : parcel.y - 6;
+      const rw = parcel.rw != null ? parcel.rw : 12;
+      const rh = parcel.rh != null ? parcel.rh : 12;
+      lotParts.push(
+        `<rect class="${cls}" data-parcel="${parcel.id}" x="${rx}" y="${ry}" width="${rw}" height="${rh}" role="button" tabindex="-1" aria-label="${label}"><title>${label}</title></rect>`
+      );
+      if (parcel.spine && parcel.mapLabel) {
+        labelParts.push(
+          `<text class="map-label parcel-name" x="${parcel.lx}" y="${parcel.ly}" text-anchor="${parcel.labelAnchor || parcel.anchor || "middle"}">${parcel.mapLabel}</text>`
+        );
+      }
+      if (hasVillage) {
+        const vx = rx + rw - 1;
+        const vy = ry + 1;
+        pinParts.push(
+          `<g class="village-pin" transform="translate(${vx} ${vy}) scale(0.55)" aria-hidden="true">` +
             `<path d="M-7 2 L0 -6 L7 2 V8 H-7 Z" fill="#e7f6c4" stroke="#1d4a22" stroke-width="0.8"/>` +
             `<path d="M-7 2 L0 -6 L7 2" fill="#3f8a3a"/>` +
             `</g>`
-          : "";
-        return (
-          `<g class="${cls}" data-parcel="${parcel.id}" role="button" tabindex="0" aria-label="${label}">` +
-          `<title>${label}</title>` +
-          `<circle class="parcel-hit" r="14" cx="${parcel.x}" cy="${parcel.y}" fill="transparent"/>` +
-          `<rect class="parcel-deed" x="${parcel.x - 6.5}" y="${parcel.y - 6.5}" width="13" height="13" rx="1.3" transform="rotate(45 ${parcel.x} ${parcel.y})"/>` +
-          `<text class="parcel-badge" x="${parcel.x}" y="${parcel.y + 2}" text-anchor="middle">${badgeText}</text>` +
-          village +
-          `<text class="map-label parcel-name" x="${parcel.lx}" y="${parcel.ly}" text-anchor="${parcel.anchor || "middle"}">${shown}</text>` +
-          `</g>`
         );
-      })
-      .join("");
+      }
+    }
+    const parcels = lotParts.join("");
+    const parcelLabels = labelParts.join("");
+    const parcelPins = pinParts.join("");
 
     const decade = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
     const villageBit = rail.villages
@@ -500,25 +522,32 @@
     const meterLabel = rail.ready
       ? "Rail lit Detroit to Jersey City · " + decade.short
       : decade.short + " · " + rail.lit + "/" + rail.need + " lit · " + rail.matureCount + " mature" + villageBit;
+    const buying = ui.tool === "farm" && ui.state.money >= cost;
+    const broke = ui.tool === "farm" && ui.state.money < cost;
+    const mapCls = "corridor-map" + (buying ? " is-buying" : "") + (broke ? " is-broke" : "");
 
     return (
       `<div class="corridor-stage">` +
       `<div class="corridor-banner">` +
       `<strong>Detroit → Jersey City</strong>` +
       `<span>${meterLabel}</span>` +
+      `<span class="lot-key"><i class="sw-own"></i> Converting</span>` +
+      `<span class="lot-key"><i class="sw-regen"></i> Regenerative</span>` +
       `<div class="rail-meter" role="progressbar" aria-valuenow="${rail.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${meterLabel}">` +
       `<i style="width:${rail.pct}%"></i>` +
       `</div>` +
       `</div>` +
-      `<svg class="corridor-map" viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor" xmlns:xlink="http://www.w3.org/1999/xlink">` +
+      `<svg class="${mapCls}" viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" aria-label="Detroit to Jersey City corridor" xmlns:xlink="http://www.w3.org/1999/xlink">` +
       `<rect width="${vw}" height="${vh}" fill="#6d8244"/>` +
       `<image href="assets/corridor-basemap.svg" xlink:href="assets/corridor-basemap.svg" x="0" y="0" width="${vw}" height="${vh}" preserveAspectRatio="none"/>` +
+      parcels +
       `<path class="rail-case" d="${fullPath}" fill="none"/>` +
       `<path class="rail-future" d="${fullPath}" fill="none"/>` +
       litPaths.map((d) => `<path class="rail-lit" d="${d}" fill="none"/>`).join("") +
       places +
       cities +
-      parcels +
+      parcelPins +
+      parcelLabels +
       `</svg>` +
       `</div>`
     );
@@ -531,17 +560,18 @@
 
   function syncFlags(grid, ui) {
     if (ui.view === "world") {
-      // Corridor re-renders via boardKey; light class sync on parcels
-      const nodes = grid.querySelectorAll("[data-parcel]");
-      for (let i = 0; i < nodes.length; i++) {
-        const el = nodes[i];
-        const id = el.getAttribute("data-parcel");
-        const farm = Zox.Sim.getFarmByParcel(ui.state, id);
-        el.classList.toggle("is-hover", !!(ui.hover && ui.hover.parcelId === id));
-        el.classList.toggle("is-picked", !!(ui.selected && ui.selected.parcelId === id));
-        el.classList.toggle("is-owned", !!farm);
-        el.classList.toggle("is-mature", !!(farm && Zox.Sim.farmMature(farm)));
-        el.classList.toggle("is-open", !farm);
+      const map = grid.querySelector(".corridor-map");
+      if (map) {
+        const cost = Zox.BUILDINGS.farm.cost;
+        map.classList.toggle("is-buying", ui.tool === "farm" && ui.state.money >= cost);
+        map.classList.toggle("is-broke", ui.tool === "farm" && ui.state.money < cost);
+      }
+      const picked = ui.selected && ui.selected.parcelId;
+      const prev = grid.querySelector(".corridor-parcel.is-picked");
+      if (prev && prev.getAttribute("data-parcel") !== picked) prev.classList.remove("is-picked");
+      if (picked) {
+        const node = grid.querySelector('[data-parcel="' + picked + '"]');
+        if (node) node.classList.add("is-picked");
       }
       return;
     }
