@@ -1725,7 +1725,6 @@
         });
         deedBoard.addEventListener("dragend", () => {
           ui.dragId = "";
-          if (ui.suppressPhoto) ui.justDragged = true;
           ui.suppressPhoto = false;
           const marked = deedBoard.querySelectorAll(".is-dragging, .is-over");
           for (let i = 0; i < marked.length; i++) marked[i].classList.remove("is-dragging", "is-over");
@@ -1744,6 +1743,7 @@
           const id = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || ui.dragId;
           const which = col.getAttribute("data-col");
           if (id && which) tryMoveDeed(id, which);
+          ui.justDragged = true;
         });
         deedBoard.addEventListener("click", (e) => {
           const move = e.target.closest("[data-move]");
