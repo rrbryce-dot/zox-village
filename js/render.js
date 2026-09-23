@@ -34,6 +34,7 @@
       if (ui.selected && ui.selected.parcelId) key += "S" + ui.selected.parcelId;
       if (ui.hover && ui.hover.parcelId) key += "H" + ui.hover.parcelId;
       if (ui.grazing) key += "G1";
+      key += "V" + Zox.Sim.countVillages(ui.state);
       key += "T" + (ui.tool || "");
       return key;
     }
@@ -64,10 +65,16 @@
       parts.push("is-field");
       const farm = Zox.Sim.getFarm(ui.state, ui.farmId);
       if (farm) {
-        if (Zox.Sim.farmMature(farm)) parts.push("is-regen-field");
-        else parts.push("is-converting-field");
-        const age = farm.regenAge || 0;
-        if (age <= 1) parts.push("is-young-convert");
+        if (Zox.Sim.farmMature(farm)) {
+          parts.push("is-regen-field");
+          parts.push("show-manure");
+        } else {
+          parts.push("is-converting-field");
+          const age = farm.regenAge || 0;
+          if (age <= 1) parts.push("is-young-convert");
+          else if (age >= 4) parts.push("is-almost-regen");
+          if (age >= 2) parts.push("show-manure");
+        }
       }
     }
     if (tile.building === "village") parts.push("has-village");
@@ -303,11 +310,13 @@
 
     // Animals graze field tiles on the farm board (crop rent / manure cycle)
     let graze = "";
+    const herdSlot = seed % 4 === 0 || (ui.grazing && seed % 2 === 0);
     const showGraze =
       farmView &&
+      herdSlot &&
       !tile.building &&
       tile.landmark !== "barn" &&
-      (tile.terrain === "meadow" || tile.terrain === "grove") &&
+      tile.terrain === "meadow" &&
       ui.state &&
       ui.state.farms &&
       ui.state.farms.length > 0;
@@ -325,6 +334,7 @@
       `<span class="iso-right"></span>` +
       `<span class="iso-cap">${capDecor(tile, farmView)}</span>` +
       volume +
+      (tile.building === "village" ? `<span class="village-halo" aria-hidden="true"></span>` : "") +
       graze +
       regenMeter(tile, ui) +
       `</span>` +
@@ -356,10 +366,31 @@
     order.sort((a, b) => a.r + a.c - (b.r + b.c) || a.r - b.r);
     for (const tile of order) cells.push(tileHTML(tiles, tile, ui, tw, th, head));
 
-    const banner =
-      ui.grazing
-        ? `<div class="graze-banner" aria-live="polite"><b>Animals grazing</b> — crop rent · manure on the land</div>`
-        : `<div class="graze-banner is-idle"><b>Grazing herd on this farm</b> — Next Season = rent the crop to the animals</div>`;
+    const farm = Zox.Sim.getFarm(ui.state, ui.farmId);
+    let bannerText = "Grazing herd on this farm — Next Season rents the crop to the animals";
+    if (farm) {
+      const books = Zox.Sim.farmBooks(farm);
+      const prog = Zox.Sim.farmProgress(farm);
+      if (prog.mature) {
+        bannerText = "Mature regen · chem $0 · graze the residue · manure stays · nutrition 6×";
+      } else if (prog.year >= 5) {
+        bannerText =
+          "Year 5 of 5 · chem −$" +
+          books.inputs +
+          " · next season graduates to $0 chem, 6× nutrition, and can light the rail";
+      } else {
+        bannerText =
+          "Converting year " +
+          prog.year +
+          " of 5 · chem −$" +
+          books.inputs +
+          " · net $" +
+          books.net +
+          "/acre · manure is starting to stay";
+      }
+    }
+    if (ui.grazing) bannerText = "Animals grazing the residue · manure stays · " + bannerText;
+    const banner = `<div class="graze-banner${ui.grazing ? "" : " is-idle"}" aria-live="polite"><b>${bannerText}</b></div>`;
 
     return (
       `<div class="farm-wrap">` +
@@ -418,8 +449,8 @@
         const hov = ui.hover && ui.hover.parcelId === parcel.id;
         let cls = "corridor-parcel";
         if (owned) cls += mature ? " is-mature" : " is-owned";
-        if (hasVillage) cls += " has-village";
         else cls += " is-open";
+        if (hasVillage) cls += " has-village";
         if (sel) cls += " is-picked";
         if (hov) cls += " is-hover";
         if (!owned && ui.tool === "farm" && ui.state.money >= cost) cls += " can-buy";
@@ -428,21 +459,51 @@
           ? farm.name + (mature ? " (regen)" : " (y" + prog.year + "/5)")
           : parcel.name + " — $" + cost;
         const badgeText = owned ? (mature ? "regen" : prog.year + "/5") : ("$" + cost);
+        const x = parcel.x;
+        const y = parcel.y;
+        const field =
+          `<path class="parcel-field" d="M ${x} ${y - 2.5} L ${x + 3.1} ${y} L ${x} ${y + 2.1} L ${x - 3.1} ${y} Z"/>` +
+          (owned && !mature
+            ? `<path class="parcel-furrow" d="M ${x - 1.6} ${y - 0.2} L ${x + 1.5} ${y + 0.5} M ${x - 1.2} ${y + 0.55} L ${x + 1.7} ${y + 1.15}" />`
+            : "") +
+          (mature
+            ? `<circle class="parcel-clover" cx="${x - 0.7}" cy="${y - 0.2}" r="0.35"/><circle class="parcel-clover" cx="${x + 0.8}" cy="${y + 0.35}" r="0.28"/><circle class="parcel-manure" cx="${x + 0.15}" cy="${y + 0.7}" r="0.28"/><circle class="parcel-manure" cx="${x - 1.1}" cy="${y + 0.85}" r="0.22"/>`
+            : "") +
+          (hasVillage
+            ? `<g class="parcel-village">` +
+              `<circle class="village-halo" cx="${x + 2.4}" cy="${y + 1.6}" r="2.1"/>` +
+              `<path d="M ${x + 1.3} ${y + 2.2} L ${x + 2.2} ${y + 1.2} L ${x + 3.1} ${y + 2.2} Z"/>` +
+              `<rect x="${x + 1.7}" y="${y + 2.2}" width="1.1" height="0.9"/>` +
+              `</g>`
+            : "") +
+          (ui.grazing && owned
+            ? `<ellipse class="parcel-herd" cx="${x - 1.8}" cy="${y + 1.5}" rx="0.7" ry="0.38"/>`
+            : "");
         return (
           `<g class="${cls}" data-parcel="${parcel.id}" role="button" tabindex="0" aria-label="${label}">` +
           `<title>${label}</title>` +
-          `<circle class="parcel-hit" r="4.5" cx="${parcel.x}" cy="${parcel.y}" fill="transparent"/>` +
-          `<rect class="parcel-deed" x="${parcel.x - 2.2}" y="${parcel.y - 2.2}" width="4.4" height="4.4" rx="0.6" transform="rotate(12 ${parcel.x} ${parcel.y})"/>` +
-          `<text class="parcel-name" x="${parcel.x}" y="${parcel.y - 3.6}" text-anchor="middle">${parcel.name}</text>` +
-          `<text class="parcel-badge" x="${parcel.x}" y="${parcel.y + 5.2}" text-anchor="middle">${badgeText}</text>` +
+          `<circle class="parcel-hit" r="4.6" cx="${x}" cy="${y}" fill="transparent"/>` +
+          field +
+          `<rect class="parcel-deed" x="${x - 1.15}" y="${y - 1.15}" width="2.3" height="2.3" rx="0.35" transform="rotate(12 ${x} ${y})"/>` +
+          `<text class="parcel-name" x="${x}" y="${y - 3.4}" text-anchor="middle">${parcel.name}</text>` +
+          `<text class="parcel-badge" x="${x}" y="${y + 4.6}" text-anchor="middle">${badgeText}</text>` +
           `</g>`
         );
       })
       .join("");
 
+    const decade = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
     const meterLabel = rail.ready
-      ? "Green rail ready — Detroit to Jersey City"
-      : "Rail progress " + rail.lit + " / " + rail.need + " segments lit · " + rail.matureCount + " mature farms";
+      ? "Green rail ready — Detroit to Jersey City · " + decade.short
+      : decade.short +
+        " · rail " +
+        rail.lit +
+        "/" +
+        rail.need +
+        " lit · " +
+        rail.matureCount +
+        " mature" +
+        (rail.villages ? " · " + rail.villages + " village station" + (rail.villages === 1 ? "" : "s") : "");
 
     return (
       `<div class="corridor-stage">` +
@@ -481,14 +542,18 @@
       `<path d="M30 50 H55 M32 54 H58 M34 58 H60"/>` +
       `</g>` +
       /* Future dashed rail */
-      `<path class="rail-future" d="${fullPath}" fill="none" stroke="#2f6a32" stroke-width="1.1" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>` +
+      `<path class="rail-bed" d="${fullPath}" fill="none" stroke="#24381c" stroke-width="1.7" stroke-linecap="round" opacity="0.35"/>` +
+      `<path class="rail-future" d="${fullPath}" fill="none" stroke="#2f6a32" stroke-width="1.15" stroke-dasharray="2.2 1.6" stroke-linecap="round"/>` +
       /* Lit solid segments */
       litPaths
-        .map((d) => `<path class="rail-lit" filter="url(#railGlow)" d="${d}" fill="none" stroke="#c9e86a" stroke-width="1.8" stroke-linecap="round"/>`)
+        .map((d) => `<path class="rail-lit" filter="url(#railGlow)" d="${d}" fill="none" stroke="#c9e86a" stroke-width="1.9" stroke-linecap="round"/>`)
+        .join("") +
+      litPaths
+        .map((d) => `<path class="rail-gleam" d="${d}" fill="none" stroke="#fff6c2" stroke-width="0.55" stroke-linecap="round"/>`)
         .join("") +
       cities +
       parcels +
-      `<text x="50" y="57" text-anchor="middle" class="corridor-caption">Buy farmland along the line · convert · buy next · light the rail</text>` +
+      `<text x="50" y="56.2" text-anchor="middle" class="corridor-caption">${decade.short} · buy · convert five seasons · income buys the next deed · villages ride the mature farms</text>` +
       `</svg>` +
       `</div>`
     );

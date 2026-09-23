@@ -74,14 +74,32 @@
 
     function seasonLabel() {
       const s = ui.state.season;
-      if (Zox.Sim.decadeInfo) {
-        if (s > Zox.GOAL.seasons) {
-          return "After Decade " + (Zox.GOAL.decades || 4) + " · Year " + Zox.GOAL.seasons;
+      if (s > Zox.GOAL.seasons) return "After four decades · year " + Zox.GOAL.seasons;
+      return Zox.Sim.decadeInfo(s).short;
+    }
+
+    function renderDecadeTrack() {
+      const box = el("decade-track");
+      if (!box) return;
+      const playing = Math.min(ui.state.season, Zox.GOAL.seasons);
+      const info = Zox.Sim.decadeInfo(playing);
+      const per = info.seasonsPerDecade;
+      let html = "";
+      for (let d = 1; d <= info.decades; d++) {
+        let pips = "";
+        for (let y = 1; y <= per; y++) {
+          const abs = (d - 1) * per + y;
+          let cls = "pip";
+          if (abs < ui.state.season) cls += " is-done";
+          else if (abs === ui.state.season) cls += " is-now";
+          pips += `<i class="${cls}" title="Year ${abs} of ${info.yearsTotal}"></i>`;
         }
-        return Zox.Sim.decadeInfo(s).label;
+        const seg =
+          d < info.decade ? " is-done" : d === info.decade ? " is-now" : "";
+        html += `<span class="decade-seg${seg}"><b>D${d}</b>${pips}</span>`;
       }
-      if (s > Zox.GOAL.seasons) return "After season " + Zox.GOAL.seasons;
-      return "Season " + s + " of " + Zox.GOAL.seasons;
+      box.innerHTML = html;
+      box.title = info.label + " — the rail is a four-decade build";
     }
 
     function enterFarm(id, bought) {
@@ -222,14 +240,17 @@
           `<span class="income-hint">LIC rent buys farmland along the corridor. Purchase a deed, walk that farm, convert, buy the next along the rail.</span>`;
         return;
       }
+      const deed = Zox.Sim.acresPerDeed();
+      const jar = Zox.Sim.nextDeed(ui.state);
       box.innerHTML =
         `<span class="kicker">This season</span>` +
         `<span><i>Crops</i> <b>$${inc.crops}</b></span>` +
-        (inc.inputs ? `<span><i>Chem bill</i> <b>−$${inc.inputs}</b></span>` : "") +
+        (inc.inputs ? `<span><i>Chem bill</i> <b>−$${inc.inputs}</b></span>` : `<span><i>Chem bill</i> <b>$0</b></span>`) +
         `<span><i>Crop rent</i> <b>$${inc.graze || 0}</b></span>` +
         `<span><i>LIC rent</i> <b>$${inc.apartments}</b></span>` +
         `<span><i>Carbon credits</i> <b>$${inc.credits}</b></span>` +
-        `<span class="income-net"><i>Net</i> <b>${inc.net >= 0 ? "+" : ""}$${inc.net}</b></span>`;
+        `<span class="income-net"><i>Net</i> <b>${inc.net >= 0 ? "+" : ""}$${inc.net}</b></span>` +
+        `<span class="income-deed">Deed $${deed.cost}. Traditional net $${deed.tradNet} buys one every ${deed.tradAcres} acres. Regen net $${deed.regenNet} buys one every ${deed.regenAcres}. ${jar.text}</span>`;
     }
 
     function mapDelta(d) {
@@ -426,9 +447,27 @@
         .join("");
 
       el("season").textContent = seasonLabel();
+      const horizon = el("horizon");
+      if (horizon) {
+        const info = Zox.Sim.decadeInfo(Math.min(ui.state.season, Zox.GOAL.seasons));
+        const rail = Zox.Sim.railProgress(ui.state);
+        const villages = Zox.Sim.countVillages(ui.state);
+        horizon.textContent =
+          info.short +
+          ". Carbon and health win a season. The rail is the long game: " +
+          rail.pct +
+          "% ready (" +
+          rail.lit +
+          "/" +
+          rail.need +
+          " segments" +
+          (villages ? ", " + villages + " village station" + (villages === 1 ? "" : "s") : "") +
+          ").";
+      }
       el("next-season").disabled = ui.state.status !== "playing";
       const grazePay = (ui.state.farms || []).reduce((sum, f) => {
-        return sum + (Zox.Sim.farmMature(f) ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting);
+        const res = Zox.Sim.seasonResolution(f);
+        return sum + (res.mature ? Zox.GRAZE_RENT.mature : Zox.GRAZE_RENT.converting);
       }, 0);
       const nextBtn = el("next-season");
       const payEl = el("graze-pay-hint");
@@ -446,112 +485,266 @@
         .join("");
     }
 
-        function renderCompare(look) {
-
-      const LEDGER_LINES = [
-        { key: "fertilizer", label: "Fertilizer", money: true },
-        { key: "syntheticNitrogen", label: "Synthetic nitrogen", money: true },
-        { key: "insecticides", label: "Insecticides", money: true },
-        { key: "herbicides", label: "Herbicides", money: true },
-        { key: "fungicides", label: "Fungicides", money: true },
-        { key: "fossilFuel", label: "Fossil fuel / diesel", money: true },
-        { key: "purchasedSeed", label: "Purchased seed", money: true },
-        { key: "irrigationChemicals", label: "Irrigation chemicals", money: true },
-        { key: "manureReturn", label: "Manure nutrients returned", money: false, good: true },
-        { key: "soilOrganicMatter", label: "Soil organic matter", money: false, good: true },
-        { key: "carbonTons", label: "Carbon sequestered", money: false, good: true, unit: "t" },
-        { key: "nutritionMult", label: "Nutrition multiplier", money: false, good: true, unit: "×" },
-        { key: "waterUse", label: "Water use", money: false, invert: true },
-        { key: "runoff", label: "Runoff", money: false, invert: true },
-        { key: "erosion", label: "Erosion", money: false, invert: true },
-        { key: "biodiversity", label: "Biodiversity", money: false, good: true },
-        { key: "laborChem", label: "Labor on chem bill", money: true },
-        { key: "laborLiving", label: "Living-system care", money: true, soft: true },
-      ];
-
-      function fmtLedger(v, line) {
-        if (v == null) return "—";
-        if (line.unit === "×") return v + "×";
-        if (line.unit === "t") return v + " t";
-        if (line.money) {
-          if (v === 0) return "$0";
-          return (v > 0 && !line.soft ? "−$" : "$") + Math.abs(v);
-        }
-        if (line.good && v > 0) return "+" + v;
-        return String(v);
+    function cellValue(v, kind) {
+      if (v == null || Number.isNaN(Number(v))) return "—";
+      const n = Math.round(Number(v) * 10) / 10;
+      if (kind === "cash") {
+        if (!n) return "$0";
+        return "−$" + n;
       }
+      if (kind === "mult") return n + "×";
+      if (kind === "good") return (n > 0 ? "+" : "") + n;
+      return String(n);
+    }
 
-      function ledgerTable(led) {
-        if (!led) return "";
-        return `<table class="ledger-table"><tbody>` +
-          LEDGER_LINES.map(function (line) {
-            const v = led[line.key];
-            const zero = line.money && v === 0;
-            return `<tr class="${zero ? "is-zero" : ""} ${line.good ? "is-good" : ""} ${line.invert ? "is-bad" : ""}"><th>${line.label}</th><td>${fmtLedger(v, line)}</td></tr>`;
-          }).join("") +
-          `</tbody></table>`;
-      }
+    function ledgerCompareHTML(columns) {
+      const spec = Zox.LEDGER_SPEC || [];
+      const head =
+        `<thead><tr><th>Per acre</th>` +
+        columns
+          .map((col) => `<th class="${col.id}${col.you ? " is-you" : ""}">${col.name}</th>`)
+          .join("") +
+        `</tr></thead>`;
+      let body = "";
+      spec.forEach((group) => {
+        body += `<tr class="grp"><td colspan="${columns.length + 1}">${group.group}</td></tr>`;
+        group.rows.forEach((row) => {
+          body += `<tr class="kind-${row.kind}"><th>${row.label}</th>`;
+          columns.forEach((col) => {
+            const v = col.ledger ? col.ledger[row.key] : null;
+            const zero = row.kind === "cash" && !v;
+            body += `<td class="${col.id}${col.you ? " is-you" : ""}${zero ? " is-zero" : ""}">${cellValue(v, row.kind)}</td>`;
+          });
+          body += `</tr>`;
+        });
+      });
+      body += `<tr class="subtotal"><th>Chem bill</th>`;
+      columns.forEach((col) => {
+        body += `<td class="${col.id}${col.you ? " is-you" : ""}">${col.inputs ? "−$" + col.inputs : "$0"}</td>`;
+      });
+      body += `</tr><tr class="netline"><th>Net $/acre</th>`;
+      columns.forEach((col) => {
+        body += `<td class="${col.id}${col.you ? " is-you" : ""}">$${col.net}</td>`;
+      });
+      body += `</tr>`;
+      return `<table class="ledger-compare">${head}<tbody>${body}</tbody></table>`;
+    }
 
+    function renderCompare(look) {
       const box = el("farm-sidebar");
       if (!box) return;
       const farm = currentFarm() || (look && look.farm);
       const books = farm ? Zox.Sim.farmBooks(farm) : null;
-      const rows = Zox.Sim.farmModelRows();
-      const trad = rows[0];
-      const conv = rows[1];
-      const regen = rows[2];
-
-      function col(row, extra) {
-        const on = !!(books && books.model === row.id);
-        const live =
-          on && books.model === "converting"
-            ? { name: books.label, gross: books.gross, inputs: books.inputs, net: books.net, ledger: books.ledger }
-            : row;
-        const led = live.ledger || row.ledger;
-        return `<article class="farm-col ${row.id}${on ? " is-you" : ""}${extra || ""}">
-          <h3>${live.name || row.name}</h3>
-          ${on ? `<p class="you-are">${farm && farm.name ? farm.name : "This farm"}</p>` : ""}
-          <dl class="farm-summary">
-            <div><dt>Gross / acre</dt><dd>$${live.gross}</dd></div>
-            <div><dt>Chem / inputs</dt><dd>${live.inputs ? "−$" + live.inputs : "$0"}</dd></div>
-            <div class="net"><dt>Net income / acre</dt><dd>$${live.net}</dd></div>
-            <div><dt>Nutrition</dt><dd>${row.id === "regenerative" ? "6×" : row.id === "converting" ? "~2×" : "1×"}</dd></div>
-          </dl>
-          <p class="ledger-kicker">Input ledger ($/acre · season)</p>
-          ${ledgerTable(led)}
-          ${row.id !== "converting" ? `<p class="net-hero">$${live.net}<span class="net-sub">net / acre</span></p>` : ""}
-        </article>`;
-      }
-
+      const focusYear = books && books.model === "converting" ? books.year : 3;
+      const rows = Zox.Sim.farmModelRows(focusYear);
+      const youId = books ? books.model : "";
+      const columns = rows.map((row) => {
+        const live = youId === row.id && books ? books : row;
+        return {
+          id: row.id,
+          name: live.label || live.name || row.name,
+          ledger: live.ledger || row.ledger,
+          inputs: live.inputs,
+          net: live.net,
+          you: youId === row.id,
+        };
+      });
+      const deed = Zox.Sim.acresPerDeed();
+      const jar = Zox.Sim.nextDeed(ui.state);
+      const graduating = books && books.model === "converting" && books.year === 5;
       box.innerHTML =
-        col(trad) +
-        col(conv, " is-slim") +
-        col(regen, " is-win") +
-        `<p class="quiet compare-punch">Regen nets <b>$${regen.net}/acre</b> with a $0 chem bill and 6× nutrition. Traditional nets <b>$${trad.net}/acre</b> after fertilizer, nitrogen, pesticides, and diesel. That cash buys the next farm along the rail — that is why the wait pays.</p>`;
+        ledgerCompareHTML(columns) +
+        `<p class="quiet compare-punch">Regen nets <b>$${deed.regenNet}/acre</b> with a $0 chem bill and 6× nutrition. Traditional nets <b>$${deed.tradNet}/acre</b> after the full chem bill. A deed is <b>$${deed.cost}</b> — regen buys one every ${deed.regenAcres} acre-seasons, traditional every ${deed.tradAcres}. ${jar.text}</p>` +
+        (graduating
+          ? `<p class="quiet compare-punch">Year 5 is the last chem line on ${farm.name}. Next season graduates it: $0 chem, 6× nutrition, mature carbon, and the rail can light.</p>`
+          : "") +
+        `<p class="ledger-note">Cash lines are dollars. Manure, soil, carbon, water, runoff, erosion, biodiversity, and labor are indexes — they show the mechanism, not a second bill. Animals graze the residue; manure stays and feeds soil organic matter.</p>`;
+    }
+
+    function cmpCell(cls, value, max, text) {
+      const w = Math.max(6, Math.round((Math.abs(value) / max) * 100));
+      return `<span class="cmp-cell ${cls}"><i style="width:${w}%"></i><b>${text}</b></span>`;
+    }
+
+    function cmpRow(label, trad, yours, regen, textFn) {
+      const max = Math.max(Math.abs(trad), Math.abs(yours), Math.abs(regen), 0.001);
+      return (
+        `<div class="cmp-row">` +
+        `<span class="cmp-label">${label}</span>` +
+        cmpCell("trad", trad, max, textFn(trad)) +
+        cmpCell("you", yours, max, textFn(yours)) +
+        cmpCell("regen", regen, max, textFn(regen)) +
+        `</div>`
+      );
+    }
+
+    function seasonReportHTML(report) {
+      const trad = report.trad || { ledger: report.ledgerTrad || {}, inputs: 10, net: report.netPerAcreTrad, gross: 18 };
+      const regen = report.regen || { ledger: report.ledgerRegen || {}, inputs: 0, net: report.netPerAcreRegen, gross: 16 };
+      const yours = report.yours;
+      const yLedger = (yours && yours.ledger) || {};
+      const yInputs = yours ? yours.inputs : 0;
+      const yNet = yours ? yours.net : 0;
+      const yNutr = yours ? yours.nutritionMult : 0;
+      const yCarbon = yours ? yours.carbonEach : 0;
+      const tidy = (n) => Math.round((Number(n) || 0) * 10) / 10;
+      const money = (n) => {
+        const v = tidy(n);
+        return v ? "−$" + v : "$0";
+      };
+      const plain = (n) => String(tidy(n));
+      const mult = (n) => tidy(n) + "×";
+      const dollars = (n) => "$" + tidy(n);
+      let cashRows = "";
+      const cashGroup = (Zox.LEDGER_SPEC || [])[0];
+      if (cashGroup) {
+        cashGroup.rows.forEach((row) => {
+          const a = (trad.ledger && trad.ledger[row.key]) || 0;
+          const b = yLedger[row.key] || 0;
+          const c = (regen.ledger && regen.ledger[row.key]) || 0;
+          cashRows += `<tr><th>${row.label}</th><td class="trad">${money(a)}</td><td class="you">${money(b)}</td><td class="regen">${money(c)}</td></tr>`;
+        });
+      }
+      const L = trad.ledger || {};
+      const R = regen.ledger || {};
+      const close = report.decadeClose
+        ? `<p class="decade-close">Decade ${report.decade.decade} of ${report.decade.decades} closes. This decade locked <b>${report.decadeTotals.carbon}</b> carbon across ${report.decadeTotals.seasons} seasons. The rail to Jersey City is still a long build.</p>`
+        : "";
+      const grad = report.graduated
+        ? `<p class="decade-close">${report.graduated} farm${report.graduated === 1 ? "" : "s"} graduated this season — chem bill $0 from here, manure stays, and the rail can light.</p>`
+        : "";
+      return (
+        close +
+        grad +
+        `<div class="report-head"><span>Traditional</span><span>Your acres</span><span>Regenerative</span></div>` +
+        `<p class="report-kicker">Per acre this season — why regen scores higher</p>` +
+        cmpRow("Chem bill", trad.inputs, yInputs, regen.inputs, money) +
+        cmpRow("Net income", trad.net, yNet, regen.net, dollars) +
+        cmpRow("Carbon", L.carbonTons || 0, yCarbon, R.carbonTons || 10, plain) +
+        cmpRow("Nutrition", L.nutritionMult || 1, yNutr, R.nutritionMult || 6, mult) +
+        cmpRow("Manure back", L.manureReturn || 0, yLedger.manureReturn || 0, R.manureReturn || 0, plain) +
+        cmpRow("Runoff + erosion", (L.runoff || 0) + (L.erosion || 0), (yLedger.runoff || 0) + (yLedger.erosion || 0), (R.runoff || 0) + (R.erosion || 0), plain) +
+        `<table class="report-cash-table"><tbody>` +
+        cashRows +
+        `<tr class="netline"><th>Net $/acre</th><td>$${trad.net}</td><td>$${yNet}</td><td>$${regen.net}</td></tr>` +
+        `</tbody></table>` +
+        `<div class="report-totals">` +
+        `<div><b>Cumulative carbon</b> ${report.carbonTotal}</div>` +
+        `<div><b>Acres</b> ${report.acres} (${report.matureAcres} mature)</div>` +
+        `<div><b>Eco-villages</b> ${report.villages}</div>` +
+        `<div><b>Rail</b> ${report.railPct}% (${report.railLit}/${report.railNeed} lit${report.villagePct ? ", +" + report.villagePct + "% from villages" : ""})</div>` +
+        `<div class="report-cash"><b>Jar</b> $${report.money} · season net ${report.incomeNet >= 0 ? "+" : ""}$${report.incomeNet} · graze $${report.graze || 0}</div>` +
+        `</div>` +
+        `<p class="report-link">${report.jar ? report.jar.text : ""} A deed is $${report.deed ? report.deed.cost : 48}. Regen net buys one every ${report.deed ? report.deed.regenAcres : 3} acre-seasons; traditional needs ${report.deed ? report.deed.tradAcres : 6}.</p>`
+      );
+    }
+
+    function scoreHowHTML() {
+      const C = Zox.CARBON;
+      const N = Zox.NUTRITION;
+      const G = Zox.GOAL;
+      const deed = Zox.Sim.acresPerDeed();
+      const modelRows = Zox.Sim.farmModelRows(3);
+      const tradBill = modelRows[0].inputs;
+      const tradGross = modelRows[0].gross;
+      const regenGross = modelRows[2].gross;
+      const ladder = (C.convertingLadder || []).join(", ");
+      const nutr = (N.convertingLadder || []).join("×, ") + "×";
+      return (
+        "<p><b>Earth wins</b> are carbon locked this season. Mature or just-graduated regen farms sequester " +
+        C.matureFarm +
+        " each. Converting years pay " +
+        ladder +
+        ". Orchards add " +
+        C.park +
+        ", standing groves add " +
+        C.grove +
+        " (capped at " +
+        C.groveCap +
+        "). The gate is " +
+        G.carbonMin +
+        " in a single season. Cumulative carbon is the long-horizon tally — it does not replace the season gate. The two opening farms graduate at the close of decade 1 and still fall short of that gate; the win waits on a longer run of mature acres.</p>" +
+        "<p><b>Population wins</b> are extra nutrition above a traditional 1× baseline. Each farm feeds " +
+        N.farmPortions +
+        " portions. Converting years are about " +
+        nutr +
+        ". Mature Zox food is " +
+        N.regenerative +
+        "×. Extra = portions × (quality − 1). Health (gate " +
+        G.healthMin +
+        ") climbs from that quality. Eco-villages on mature farms add " +
+        (Zox.BUILDINGS.village.healthBoost || 0) +
+        " health and " +
+        (Zox.BUILDINGS.village.nutritionBoost || 0) +
+        " nutrition, and they put stations on the rail.</p>" +
+        "<p><b>The ledger</b> is why regen scores higher. Traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals. That chem bill is $" +
+        tradBill +
+        " on a $" +
+        tradGross +
+        " gross, so net is $" +
+        deed.tradNet +
+        "/acre. Regenerative pays $0 for every one of those lines (gross $" +
+        regenGross +
+        ", net $" +
+        deed.regenNet +
+        "). Animals graze the residue and manure stays, so manure nutrients and soil organic matter rise, runoff and erosion fall, and biodiversity climbs. Labor shifts off the chem crew and onto living-system care (an index, not a second invoice).</p>" +
+        "<p><b>Net $/acre</b> is gross minus that chem bill: traditional $" +
+        deed.tradNet +
+        ", regenerative $" +
+        deed.regenNet +
+        ". A deed costs $" +
+        deed.cost +
+        ", so regen income buys the next farm every " +
+        deed.regenAcres +
+        " acre-seasons and traditional needs " +
+        deed.tradAcres +
+        ". That is the loop down the corridor.</p>" +
+        "<p><b>Crop rent</b> is separate cash on Next Season — animals graze the residue and leave manure. <b>Decades:</b> " +
+        G.decades +
+        " decades × " +
+        G.seasonsPerDecade +
+        " seasons. The carbon and health gates can be met in a later decade; the rail to Jersey City is the long build either way. Carbon credits $ on the income strip are not the sequestration meter.</p>"
+      );
     }
 
     function renderEnd() {
       const overlay = el("end-card");
-      if (ui.state.status === "playing") {
+      const seasonCard = el("season-win");
+      if (ui.state.status === "playing" || (seasonCard && !seasonCard.hidden)) {
         overlay.hidden = true;
         return;
       }
       overlay.hidden = false;
-      el("end-title").textContent = ui.state.status === "won" ? "The village holds." : "Not this corridor.";
+      const won = ui.state.status === "won";
+      el("end-title").textContent = won ? "The village holds." : "Not this corridor.";
       el("end-body").textContent = ui.state.endReason;
+      const rail = Zox.Sim.railProgress(ui.state);
+      const when = ui.state.wonOnSeason || Math.max(1, ui.state.season - 1);
+      const info = Zox.Sim.decadeInfo(Math.min(when, Zox.GOAL.seasons));
       el("end-score").textContent =
-        "Win score " +
+        (won ? info.short + " · " : "") +
+        "score " +
         ui.state.score +
-        " · carbon " +
+        " · carbon this season " +
         (ui.state.carbonSeason || 0) +
+        " · lifetime " +
+        (ui.state.carbonTotal || 0) +
         " · health " +
-        (ui.state.health || 0);
+        (ui.state.health || 0) +
+        " · acres " +
+        (ui.state.farms ? ui.state.farms.length : 0) +
+        " · villages " +
+        Zox.Sim.countVillages(ui.state) +
+        " · rail " +
+        rail.pct +
+        "%";
     }
 
     function render() {
       root.dataset.status = ui.state.status;
       root.dataset.view = ui.view;
       renderChrome();
+      renderDecadeTrack();
       renderMeters();
       renderToolbar();
       renderGrid();
@@ -657,52 +850,20 @@
 
       const title = el("season-win-title");
       if (title && report && report.decade) {
-        title.textContent = report.decade.label + " — report card";
+        title.textContent = report.decadeClose
+          ? "Decade " + report.decade.decade + " of " + report.decade.decades + " closes — report card"
+          : report.decade.short + " — report card";
       }
 
       const reportBox = el("season-report");
       if (reportBox && report) {
-        const L = report.ledgerTrad || {};
-        const R = report.ledgerRegen || {};
-        function bar(label, a, b, unit) {
-          const max = Math.max(Math.abs(a), Math.abs(b), 1);
-          const wa = Math.round((Math.abs(a) / max) * 100);
-          const wb = Math.round((Math.abs(b) / max) * 100);
-          return `<div class="report-row"><span class="report-label">${label}</span>
-            <div class="report-bars">
-              <div class="bar trad" style="width:${wa}%"><i>${a}${unit || ""}</i></div>
-              <div class="bar regen" style="width:${wb}%"><i>${b}${unit || ""}</i></div>
-            </div></div>`;
-        }
-        reportBox.innerHTML =
-          `<div class="report-head"><span>Traditional</span><span>Regenerative</span></div>` +
-          bar("Inputs spent $/acre", (Number(L.fertilizer)||0)+(Number(L.syntheticNitrogen)||0)+(Number(L.insecticides)||0)+(Number(L.herbicides)||0)+(Number(L.fungicides)||0)+(Number(L.fossilFuel)||0)+(Number(L.purchasedSeed)||0)+(Number(L.irrigationChemicals)||0) || 10, 0, "") +
-          bar("Net income $/acre", report.netPerAcreTrad, report.netPerAcreRegen, "") +
-          bar("Carbon (game units)", 0, report.carbon, "") +
-          bar("Nutrition mult", L.nutritionMult || 1, R.nutritionMult || 6, "×") +
-          bar("Biodiversity", L.biodiversity || 2, R.biodiversity || 9, "") +
-          bar("Runoff / erosion", (L.runoff || 0) + (L.erosion || 0), (R.runoff || 0) + (R.erosion || 0), "") +
-          `<div class="report-totals">
-            <div><b>Cumulative carbon</b> ${report.carbonTotal}</div>
-            <div><b>Acres</b> ${report.acres} (${report.matureAcres} mature)</div>
-            <div><b>Eco-villages</b> ${report.villages}</div>
-            <div><b>Rail</b> ${report.railPct}% (${report.railLit}/${report.railNeed})</div>
-            <div class="report-cash"><b>Jar</b> $${report.money} · season net ${report.incomeNet >= 0 ? "+" : ""}$${report.incomeNet}</div>
-          </div>
-          <p class="report-link">Net $/acre from regen is what buys the next farmland along Detroit → Jersey City.</p>`;
+        reportBox.innerHTML = seasonReportHTML(report);
       }
 
       const how = el("score-how");
       if (how) how.open = false;
       const howBody = el("score-how-body");
-      if (howBody) {
-        howBody.innerHTML =
-          "<p><b>Earth wins</b> count carbon locked in soil this season: mature regen farms sequester the most, converting farms less, orchards and standing groves add a little. Eco-villages near mature farms boost Health and rail readiness.</p>" +
-          "<p><b>Population wins</b> count additional nutrition above a traditional baseline. Mature Zox food is 6× traditional nutrition; converting farms are about 2×. Villages add a little more.</p>" +
-          "<p><b>Input ledger</b> shows why regen wins: fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals cost Traditional ~$10/acre and Regenerative $0 — animals and living soil replace them. Manure returns nutrients; soil organic matter rises.</p>" +
-          "<p><b>Net income per acre</b> (Traditional ~$8 vs Regenerative $16) is the cash that buys the next farm along the rail. Play spans four decades toward lighting Detroit → Jersey City.</p>" +
-          "<p><b>Crop rent</b> (on Next Season) is separate cash — animals graze the stubble and leave manure.</p>";
-      }
+      if (howBody) howBody.innerHTML = scoreHowHTML();
       const buyNext = el("season-buy-next");
       if (buyNext) {
         const afford = canAffordNextFarm();
@@ -843,55 +1004,25 @@
               ? Zox.Sim.inspectParcel(ui.state, ui.selected.parcelId)
               : null;
         const books = farm ? Zox.Sim.farmBooks(farm) : look && look.farm ? Zox.Sim.farmBooks(look.farm) : null;
-        const LEDGER_LINES = [
-          { key: "fertilizer", label: "Fertilizer" },
-          { key: "syntheticNitrogen", label: "Synthetic N" },
-          { key: "insecticides", label: "Insecticides" },
-          { key: "herbicides", label: "Herbicides" },
-          { key: "fungicides", label: "Fungicides" },
-          { key: "fossilFuel", label: "Diesel / fuel" },
-          { key: "purchasedSeed", label: "Purchased seed" },
-          { key: "irrigationChemicals", label: "Irrigation chems" },
-          { key: "manureReturn", label: "Manure returned" },
-          { key: "soilOrganicMatter", label: "Soil OM gain" },
-          { key: "carbonTons", label: "Carbon (t)" },
-          { key: "nutritionMult", label: "Nutrition" },
-          { key: "waterUse", label: "Water use" },
-          { key: "runoff", label: "Runoff" },
-          { key: "erosion", label: "Erosion" },
-          { key: "biodiversity", label: "Biodiversity" },
-          { key: "laborChem", label: "Chem labor" },
-          { key: "laborLiving", label: "Living-system care" },
-        ];
-        box.innerHTML = Zox.Sim.farmModelRows()
-          .map((row) => {
-            const on = books && books.model === row.id;
-            const led = row.ledger || {};
-            const lines = LEDGER_LINES.map(function (line) {
-              let v = led[line.key];
-              let shown = v;
-              if (line.key === "nutritionMult") shown = v + "×";
-              else if (["fertilizer","syntheticNitrogen","insecticides","herbicides","fungicides","fossilFuel","purchasedSeed","irrigationChemicals","laborChem"].indexOf(line.key) >= 0) {
-                shown = v === 0 ? "$0" : "−$" + v;
-              } else if (typeof v === "number" && v > 0 && ["manureReturn","soilOrganicMatter","biodiversity","carbonTons"].indexOf(line.key) >= 0) {
-                shown = "+" + v;
-              }
-              return `<div><dt>${line.label}</dt><dd>${shown}</dd></div>`;
-            }).join("");
-            return `<article class="farm-col ${row.id}${on ? " is-you" : ""}">
-              <h3>${row.name}</h3>
-              ${on ? `<p class="you-are">${farm && farm.name ? farm.name : "This farm"}</p>` : ""}
-              <dl>
-                <div><dt>Gross crop / acre</dt><dd>$${row.gross}</dd></div>
-                <div><dt>Input costs / acre</dt><dd>${row.inputs ? "−$" + row.inputs : "$0"}</dd></div>
-                <div class="net"><dt>Net income / acre</dt><dd>$${row.net}</dd></div>
-                ${lines}
-              </dl>
-              <p class="net-hero">$${row.net}<span class="net-sub">buys farmland</span></p>
-              <p>${row.note}</p>
-            </article>`;
-          })
-          .join("");
+        const focusYear = books && books.model === "converting" ? books.year : 3;
+        const rows = Zox.Sim.farmModelRows(focusYear);
+        const youId = books ? books.model : "";
+        box.innerHTML =
+          ledgerCompareHTML(
+            rows.map((row) => ({
+              id: row.id,
+              name: row.name,
+              ledger: row.ledger,
+              inputs: row.inputs,
+              net: row.net,
+              you: youId === row.id,
+            }))
+          ) +
+          `<div class="model-notes">` +
+          rows
+            .map((row) => `<p><b>${row.name}.</b> ${row.note}</p>`)
+            .join("") +
+          `</div>`;
         el("farm-card").hidden = false;
       }
 
