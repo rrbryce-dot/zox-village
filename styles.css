@@ -1676,6 +1676,41 @@ body {
   .season-wins { grid-template-columns: 1fr; }
 }
 
+.great-job-card {
+  display: flex;
+  flex-direction: column;
+  max-height: min(92dvh, 720px);
+  overflow: hidden;
+}
+.great-job-body {
+  overflow: auto;
+  min-height: 0;
+}
+.great-job-card .season-win-actions {
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+.great-job-card h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.8rem, 6vw, 2.5rem);
+  margin: 0 0 4px;
+  color: var(--moss);
+  text-align: center;
+}
+.great-job-card .eyebrow,
+.great-job-card .quiet {
+  text-align: center;
+}
+.great-job-compare {
+  margin: 4px 0 14px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.great-job-card .season-win-actions .btn {
+  width: 100%;
+}
+
 
 .score-how {
   margin: 0 0 12px;
@@ -3390,4 +3425,64 @@ h1 {
 .corridor-map .village-pin text {
   font-family: Georgia, "Palatino Linotype", Palatino, serif;
   pointer-events: none;
+}
+
+/* Autopilot year clock — absolute year, held long enough to read. Manual play is unchanged. */
+html[data-ap-running="1"] .season {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  max-width: none;
+  line-height: 1.15;
+}
+html[data-ap-running="1"] .season.is-year-tick {
+  animation: year-tick 0.65s ease;
+}
+@keyframes year-tick {
+  0% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+html[data-ap-running="1"][data-year-tint="1"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(126, 200, 227, 0.55);
+}
+html[data-ap-running="1"][data-year-tint="2"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(242, 211, 27, 0.6);
+}
+html[data-ap-running="1"][data-year-tint="3"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(31, 157, 85, 0.55);
+}
+html[data-ap-running="1"][data-year-tint="4"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(208, 120, 74, 0.55);
+}
+
+/* Autopilot corridor overview — map fills the board; deeds and side panels step aside. */
+html[data-map-overview="1"] .story-dock,
+html[data-map-overview="1"] .notes,
+html[data-map-overview="1"] #village-line,
+html[data-map-overview="1"] #deed-board {
+  display: none !important;
+}
+html[data-map-overview="1"] .play {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: "board" !important;
+}
+html[data-map-overview="1"] .board {
+  min-height: calc(100dvh - 108px);
+}
+html[data-map-overview="1"] #grid.corridor-world {
+  min-height: calc(100dvh - 230px) !important;
+  height: calc(100dvh - 230px) !important;
+}
+html[data-map-overview="1"] .corridor-stage,
+html[data-map-overview="1"] .corridor-map {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+}
+.board.is-map-pulse .corridor-map {
+  animation: map-pulse 0.9s ease;
+}
+@keyframes map-pulse {
+  0% { box-shadow: 0 0 0 5px #e2c56a; }
+  100% { box-shadow: inset 0 0 0 1px rgba(244, 234, 211, 0.35), 0 4px 14px rgba(40, 50, 20, 0.14); }
 }

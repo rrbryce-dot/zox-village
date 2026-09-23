@@ -88,14 +88,24 @@
       return ui.state.horizonSeasons || Zox.GOAL.seasons;
     }
 
+    function autopilotClock() {
+      const ap = ui.state && ui.state.autopilot;
+      return !!(ui.apOn || (ap && (ap.on || ap.complete)));
+    }
+
     function seasonLabel() {
       const s = ui.state.season;
       const cap = seasonCap();
+      const info = Zox.Sim.decadeInfo(Math.min(Math.max(1, s), cap), ui.state);
+      if (autopilotClock()) {
+        if (s > cap) return "After year " + cap + " of " + info.yearsTotal;
+        return "Year " + info.year + " of " + info.yearsTotal;
+      }
       if (s > cap) {
         const decades = ui.state.horizonDecades || Zox.GOAL.decades;
         return "After " + decades + " decades · year " + cap;
       }
-      return Zox.Sim.decadeInfo(s, ui.state).short;
+      return info.short;
     }
 
     function renderDecadeTrack() {
@@ -468,14 +478,29 @@
         })
         .join("");
 
-      el("season").textContent = seasonLabel();
+      const seasonEl = el("season");
+      if (seasonEl) {
+        const label = seasonLabel();
+        const changed = seasonEl.textContent !== label;
+        seasonEl.textContent = label;
+        if (ui.apOn && changed) {
+          seasonEl.classList.remove("is-year-tick");
+          void seasonEl.offsetWidth;
+          seasonEl.classList.add("is-year-tick");
+        } else if (!ui.apOn) {
+          seasonEl.classList.remove("is-year-tick");
+        }
+      }
       const horizon = el("horizon");
       if (horizon) {
         const info = Zox.Sim.decadeInfo(Math.min(ui.state.season, seasonCap()), ui.state);
         const rail = Zox.Sim.railProgress(ui.state);
         const villages = Zox.Sim.countVillages(ui.state);
+        const clock = autopilotClock()
+          ? "Year " + info.year + " of " + info.yearsTotal + " · Decade " + info.decade + " of " + info.decades
+          : info.short;
         horizon.textContent =
-          info.short +
+          clock +
           ". Carbon and health win a season. The rail is the long game: " +
           rail.pct +
           "% ready (" +
@@ -1064,6 +1089,12 @@
       const phaseName = ap && ap.phase ? ap.phase : "";
       document.documentElement.dataset.apPhase = running || done ? phaseName : "";
       document.documentElement.dataset.apRunning = running ? "1" : "0";
+      if (running) {
+        const s = ui.state.season || 1;
+        document.documentElement.dataset.yearTint = String(((s - 1) % 4) + 1);
+      } else {
+        delete document.documentElement.dataset.yearTint;
+      }
       if (cardId()) document.documentElement.dataset.apCard = cardId();
       else delete document.documentElement.dataset.apCard;
       renderSpotlight();
@@ -1081,6 +1112,8 @@
         ui.apTimer = 0;
       }
       ui.apBeat = "";
+      hideGreatJob();
+      hideMapOverview();
       if (!finished && ui.state.autopilot) {
         ui.state.autopilot.on = false;
         ui.state.autopilotHold = false;
@@ -1090,41 +1123,210 @@
       if (btn) btn.disabled = ui.state.status !== "playing";
     }
 
-    function autopilotPace(kind, firstCard) {
+    function autopilotPace(kind) {
       const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
-      if (kind === "announce") return P.announce || 900;
-      if (kind === "village") return P.village || 360;
-      if (kind === "sell") return P.sell || 520;
-      if (kind === "rail") return P.rail || 200;
-      if (kind === "compost") return P.compost || 40;
-      if (firstCard) return P.card || 420;
-      return P.season || 80;
+      if (kind === "announce") return P.announce || 4000;
+      if (kind === "village") return P.village || 2000;
+      if (kind === "sell") return P.sell || 2000;
+      if (kind === "rail") return P.rail || 1800;
+      if (kind === "compost") return P.compost || 1500;
+      return P.season || 2000;
+    }
+
+    function narrateYear(text) {
+      if (ui.state.autopilot) ui.state.autopilot.note = text;
+    }
+
+    function yearOpenLine() {
+      const info = Zox.Sim.decadeInfo(ui.state.season, ui.state);
+      const inc = ui.state.lastIncome || {};
+      const net = inc.net || 0;
+      const books = ui.state.villageBooks || {};
+      const villages = Zox.Sim.countVillages(ui.state);
+      return (
+        "Year " +
+        info.year +
+        " of " +
+        info.yearsTotal +
+        " · Decade " +
+        info.decade +
+        " of " +
+        info.decades +
+        ". Last year net " +
+        (net >= 0 ? "+" : "") +
+        "$" +
+        net +
+        ". Jar $" +
+        ui.state.money +
+        ". Villages " +
+        villages +
+        (books.lease ? ", lease $" + books.lease : "") +
+        ". Rail " +
+        (ui.state.builtRail || 0) +
+        "."
+      );
+    }
+
+    function showGreatJob(job) {
+      const card = el("great-job");
+      if (!card || !job) return;
+      const kicker = el("great-job-kicker");
+      const lead = el("great-job-lead");
+      const carbon = el("great-job-carbon");
+      const carbonNote = el("great-job-carbon-note");
+      const nutrition = el("great-job-nutrition");
+      const nutritionNote = el("great-job-nutrition-note");
+      const compare = el("great-job-compare");
+      if (kicker) kicker.textContent = "Decade " + job.decade + " of " + job.decades;
+      if (lead) {
+        lead.textContent =
+          "Year " + job.year + " is in the books. Year " + job.nextYear + " of " + job.yearsTotal + " is next.";
+      }
+      if (carbon) carbon.textContent = String(job.carbonTotal);
+      if (carbonNote) {
+        carbonNote.textContent =
+          "carbon sequestered since the start · " + job.carbonDecade + " this decade";
+      }
+      if (nutrition) nutrition.textContent = String(job.nutritionTotal);
+      if (nutritionNote) {
+        nutritionNote.textContent =
+          "extra nutrition above a traditional " + job.tradMult + "× path · " + job.nutritionDecade + " this decade";
+      }
+      if (compare) {
+        const yours = job.yoursMult
+          ? " Your acres averaged " + job.yoursMult + "× this year."
+          : "";
+        compare.textContent =
+          "Earth wins are carbon locked in the soil. Population wins are extra nutrition above a traditional " +
+          job.tradMult +
+          "× farm." +
+          yours +
+          " Mature regenerative food is " +
+          job.regenMult +
+          "×.";
+      }
+      if (ui.state.autopilot) {
+        ui.state.autopilot.note =
+          "Great Job. Decade " + job.decade + " of " + job.decades + " is complete.";
+      }
+      card.hidden = false;
+      const next = el("great-job-next");
+      if (next) next.focus();
+    }
+
+    function hideGreatJob() {
+      const card = el("great-job");
+      if (card) card.hidden = true;
+    }
+
+    function pulseMap() {
+      const board = document.querySelector(".board");
+      if (!board) return;
+      board.classList.remove("is-map-pulse");
+      void board.offsetWidth;
+      board.classList.add("is-map-pulse");
+      const grid = el("grid");
+      if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+
+    function showMapOverview(reason) {
+      document.documentElement.dataset.mapOverview = "1";
+      ui.view = "world";
+      ui.farmId = null;
+      const sub = el("view-sub");
+      if (sub) sub.textContent = "Overview — Detroit to Jersey City. Farms, eco-villages, right-of-way, and the rail.";
+      const why =
+        reason === "decade"
+          ? "Corridor overview. This decade is on the map — farms, villages, right-of-way, and rail."
+          : "Corridor overview. Detroit to Jersey City — farms, eco-villages, right-of-way, and rail.";
+      narrateYear(why);
+      const note = el("autopilot-note");
+      if (note) note.textContent = why;
+      const grid = el("grid");
+      if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: "center", inline: "nearest" });
+    }
+
+    function hideMapOverview() {
+      delete document.documentElement.dataset.mapOverview;
+    }
+
+    function finishMapOverview() {
+      if (ui.apTimer) {
+        clearTimeout(ui.apTimer);
+        ui.apTimer = 0;
+      }
+      hideMapOverview();
+      if (!ui.apOn || !ui.ap) return;
+      ui.apBeat = "";
+      narrateYear(yearOpenLine());
+      render();
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3500);
+    }
+
+    function beginMapOverview(reason) {
+      showMapOverview(reason);
+      ui.apBeat = "map";
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      ui.apTimer = window.setTimeout(finishMapOverview, P.mapOverview || 7000);
+    }
+
+    function resumeAfterGreatJob() {
+      if (ui.apTimer) {
+        clearTimeout(ui.apTimer);
+        ui.apTimer = 0;
+      }
+      hideGreatJob();
+      if (!ui.apOn || !ui.ap) return;
+      beginMapOverview("decade");
+    }
+
+    function holdAfterYear(before) {
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      const job = Zox.Sim.decadeJustClosed && Zox.Sim.decadeJustClosed(before, ui.state);
+      if (job) {
+        showGreatJob(job);
+        ui.apBeat = "great-job";
+        ui.apTimer = window.setTimeout(resumeAfterGreatJob, P.greatJob || 10000);
+        return;
+      }
+      if (ui.state.season > 1 && ui.state.season % 4 === 0) {
+        beginMapOverview("year");
+        return;
+      }
+      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3500);
+    }
+
+    function finishAutopilot() {
+      stopAutopilot(true);
+      ui.view = "world";
+      ui.farmId = null;
+      ui.boardKey = "";
+      render();
+      if (ui.ap && ui.ap.summary && ui.apStartedAt) {
+        const sum = ui.ap.summary();
+        sum.realMs = Math.round(performance.now() - ui.apStartedAt);
+        ui.apSummary = sum;
+        try {
+          window.__zoxAutopilotSummary = sum;
+        } catch (err) {
+          /* ignore */
+        }
+      }
     }
 
     function kickAutopilot() {
       if (!ui.apOn || !ui.ap) return;
+      if (ui.apBeat === "great-job" || ui.apBeat === "map") return;
       const d = ui.ap.peek();
       if (!d || d.kind === "done") {
         if (d && ui.ap) ui.ap.commit();
-        stopAutopilot(true);
-        ui.view = "world";
-        ui.farmId = null;
-        ui.boardKey = "";
-        render();
-        if (ui.ap && ui.ap.summary && ui.apStartedAt) {
-          const sum = ui.ap.summary();
-          sum.realMs = Math.round(performance.now() - ui.apStartedAt);
-          ui.apSummary = sum;
-          try {
-            window.__zoxAutopilotSummary = sum;
-          } catch (err) {
-            /* ignore */
-          }
-        }
+        finishAutopilot();
         return;
       }
       const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
-      if ((d.kind === "buy" || d.kind === "row") && d.affordable) {
+      const turnsYear = Zox.Autopilot.decisionTurnsYear ? Zox.Autopilot.decisionTurnsYear(d) : d.kind === "season";
+      if ((d.kind === "buy" || d.kind === "row") && d.affordable && ui.apBeat !== "year-close") {
         if (ui.apBeat !== "show" && ui.apBeat !== "stage") {
           ui.apBeat = "show";
           ui.apShown = d.parcelId;
@@ -1133,43 +1335,81 @@
           ui.selected = { parcelId: d.parcelId };
           ui.boardKey = "";
           render();
-          ui.apTimer = window.setTimeout(kickAutopilot, P.card || 420);
+          ui.apTimer = window.setTimeout(kickAutopilot, P.card || 2000);
           return;
         }
         if (ui.apBeat === "show") {
           ui.apBeat = "stage";
           render();
-          ui.apTimer = window.setTimeout(kickAutopilot, P.stage || 200);
+          ui.apTimer = window.setTimeout(kickAutopilot, P.stage || 1600);
           return;
         }
+        const before = ui.state.season;
         ui.ap.commit();
         ui.apBeat = "";
         ui.selected = { parcelId: d.parcelId };
         ui.boardKey = "";
+        if (ui.state.season !== before) narrateYear(yearOpenLine());
         render();
-        ui.apTimer = window.setTimeout(kickAutopilot, P.buy || 180);
+        pulseMap();
+        if (ui.state.season !== before) holdAfterYear(before);
+        else ui.apTimer = window.setTimeout(kickAutopilot, P.buy || 1800);
         return;
       }
-      const firstCard = (d.kind === "buy" || d.kind === "row") && ui.apShown !== d.parcelId;
+      if (turnsYear && ui.apBeat !== "year-close") {
+        const info = Zox.Sim.decadeInfo(ui.state.season, ui.state);
+        ui.apBeat = "year-close";
+        if (d.kind === "buy" || d.kind === "row") {
+          ui.apShown = d.parcelId;
+          ui.selected = { parcelId: d.parcelId };
+        }
+        ui.view = "world";
+        ui.farmId = null;
+        ui.boardKey = "";
+        let extra = d.note || "Rent and soil keep working.";
+        const prefix = "Year " + info.year + " of " + info.yearsTotal + ". ";
+        if (extra.indexOf(prefix) === 0) extra = extra.slice(prefix.length);
+        narrateYear("Closing year " + info.year + " of " + info.yearsTotal + ". " + extra);
+        render();
+        ui.apTimer = window.setTimeout(kickAutopilot, P.yearClose || 3000);
+        return;
+      }
+      if (ui.apBeat === "year-close") {
+        const before = ui.state.season;
+        ui.ap.commit();
+        ui.apBeat = "";
+        ui.view = "world";
+        ui.farmId = null;
+        ui.boardKey = "";
+        narrateYear(yearOpenLine());
+        render();
+        holdAfterYear(before);
+        return;
+      }
       if (d.kind === "buy" || d.kind === "row") {
         ui.apShown = d.parcelId;
-        ui.apBeat = "wait";
         ui.selected = { parcelId: d.parcelId };
-      } else {
-        ui.apBeat = "";
       }
+      ui.apBeat = "";
       ui.view = "world";
       ui.farmId = null;
       ui.boardKey = "";
       render();
-      const wait = autopilotPace(d.kind, firstCard);
+      const wait = autopilotPace(d.kind);
+      const before = ui.state.season;
       ui.apTimer = window.setTimeout(function () {
         if (!ui.apOn || !ui.ap) return;
         ui.ap.commit();
         ui.apBeat = "";
         ui.boardKey = "";
+        if (ui.state.season !== before) narrateYear(yearOpenLine());
         render();
-        kickAutopilot();
+        if (d.kind === "village" || d.kind === "rail" || d.kind === "buy" || d.kind === "row") pulseMap();
+        if (ui.state.season !== before) {
+          holdAfterYear(before);
+          return;
+        }
+        ui.apTimer = window.setTimeout(kickAutopilot, P.settle || 1800);
       }, wait);
     }
 
@@ -1184,6 +1424,7 @@
       const intro = el("intro");
       if (intro) intro.hidden = true;
       hideSeasonWins();
+      hideGreatJob();
       if (ui.winTimer) {
         clearTimeout(ui.winTimer);
         ui.winTimer = 0;
@@ -1610,6 +1851,7 @@
 
     function nextSeason() {
       if (ui.apOn) return;
+      const before = ui.state.season;
       const res = Zox.Sim.runSeason(ui.state);
       flash(res.ok ? "" : res.why);
       if (res.ok) {
@@ -1627,7 +1869,9 @@
         ui.winTimer = window.setTimeout(function () {
           ui.winTimer = 0;
           if (ui.apOn) return;
-          showSeasonWins();
+          const job = Zox.Sim.decadeJustClosed && Zox.Sim.decadeJustClosed(before, ui.state);
+          if (job) showGreatJob(job);
+          else showSeasonWins();
         }, 1600);
       } else {
         render();
@@ -1807,6 +2051,16 @@
           render();
         });
       }
+      const greatNext = el("great-job-next");
+      if (greatNext) {
+        greatNext.addEventListener("click", () => {
+          if (ui.apOn && ui.apBeat === "great-job") {
+            resumeAfterGreatJob();
+            return;
+          }
+          hideGreatJob();
+        });
+      }
       /* score-how uses native <details>/<summary> — no JS click needed */
       el("restart").addEventListener("click", restart);
       el("end-restart").addEventListener("click", restart);
@@ -1895,6 +2149,12 @@
           e.preventDefault();
           return;
         }
+        if (e.key === "Escape" && el("great-job") && !el("great-job").hidden) {
+          if (ui.apOn && ui.apBeat === "great-job") resumeAfterGreatJob();
+          else hideGreatJob();
+          e.preventDefault();
+          return;
+        }
         if (e.key === "Escape" && !el("farm-card").hidden) {
           closeFarmModels();
           e.preventDefault();
@@ -1905,7 +2165,7 @@
           e.preventDefault();
           return;
         }
-        if (!el("intro").hidden || !el("end-card").hidden || !el("farm-card").hidden || (el("farm-photo") && !el("farm-photo").hidden) || (el("season-win") && !el("season-win").hidden)) return;
+        if (!el("intro").hidden || !el("end-card").hidden || !el("farm-card").hidden || (el("farm-photo") && !el("farm-photo").hidden) || (el("season-win") && !el("season-win").hidden) || (el("great-job") && !el("great-job").hidden)) return;
         if (e.key === "b" || e.key === "B") {
           if (ui.view === "farm") {
             leaveFarm();

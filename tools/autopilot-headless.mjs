@@ -55,6 +55,18 @@ if (sum.builtRail !== sum.railTarget) errors.push("builtRail " + sum.builtRail);
 if (sum.cashWaits < 1) errors.push("expected a cash wait");
 if (sum.season < 16 || sum.season > 30) errors.push("season " + sum.season + " outside 4–6 decade band");
 if (sum.decade < 4) errors.push("decade " + sum.decade);
+const years = sum.years || [];
+if (years.length < 10) errors.push("too few years " + years.length);
+if (years[0] !== 2) errors.push("first recorded year " + years[0]);
+if (years[years.length - 1] !== sum.season) errors.push("last year " + years[years.length - 1] + " != season " + sum.season);
+const per = 5;
+const expectedJobs = years.filter((y) => y > 1 && (y - 1) % per === 0).length;
+if (sum.greatJobs !== expectedJobs) errors.push("greatJobs " + sum.greatJobs + " != " + expectedJobs);
+if ((sum.greatJobs || 0) < 3) errors.push("expected a Great Job card after each closed decade, got " + sum.greatJobs);
+for (let i = 1; i < years.length; i++) {
+  if (years[i] !== years[i - 1] + 1) errors.push("year skip " + years[i - 1] + " -> " + years[i]);
+}
+if ((sum.estimatedWatchSec || 0) < 120) errors.push("estimated watch " + sum.estimatedWatchSec + "s is still a short skim");
 if (state.autopilotHold) errors.push("hold still set");
 if (sum.status !== "playing") errors.push("status " + sum.status);
 if (sum.money < 0) errors.push("broke");

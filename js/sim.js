@@ -544,6 +544,36 @@
     return { decade: decade, carbon: carbon, nutrition: nutrition, net: net, seasons: seasons };
   }
 
+  /**
+   * Snapshot for the decade “Great Job” card. Null unless `beforeSeason`
+   * just finished and that year closed a decade. Numbers come from the
+   * existing carbon tally and nutrition-above-traditional books.
+   */
+  function decadeJustClosed(beforeSeason, state) {
+    if (!state || state.season !== beforeSeason + 1) return null;
+    const info = decadeInfo(beforeSeason, state);
+    if (!info.closing) return null;
+    const slice = decadeSlice(state.history, info.decade);
+    let nutritionTotal = 0;
+    const rows = state.history || [];
+    for (let i = 0; i < rows.length; i++) nutritionTotal += rows[i].nutrition || 0;
+    const yours = averageSnaps(state);
+    return {
+      decade: info.decade,
+      decades: info.decades,
+      year: info.year,
+      nextYear: state.season,
+      yearsTotal: info.yearsTotal,
+      carbonDecade: slice.carbon,
+      carbonTotal: state.carbonTotal || 0,
+      nutritionDecade: slice.nutrition,
+      nutritionTotal: nutritionTotal,
+      yoursMult: yours ? yours.nutritionMult : 0,
+      tradMult: (Zox.NUTRITION && Zox.NUTRITION.traditional) || 1,
+      regenMult: (Zox.NUTRITION && Zox.NUTRITION.regenerative) || 6,
+    };
+  }
+
   function seasonReportCard(state) {
     const finished = Math.max(1, (state.season || 1) - 1);
     const decade = decadeInfo(finished, state);
@@ -1600,6 +1630,7 @@
     seasonResolution,
     resolveFarmSeason,
     decadeInfo,
+    decadeJustClosed,
     seasonReportCard,
     countVillages,
     corridorVillages,
