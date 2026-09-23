@@ -1231,7 +1231,10 @@
         ui.view = "world";
         ui.farmId = null;
         ui.boardKey = "";
-        narrateYear("Closing year " + info.year + " of " + info.yearsTotal + ". " + (d.note || "Rent and soil keep working."));
+        let extra = d.note || "Rent and soil keep working.";
+        const prefix = "Year " + info.year + " of " + info.yearsTotal + ". ";
+        if (extra.indexOf(prefix) === 0) extra = extra.slice(prefix.length);
+        narrateYear("Closing year " + info.year + " of " + info.yearsTotal + ". " + extra);
         render();
         ui.apTimer = window.setTimeout(kickAutopilot, P.yearClose || 2400);
         return;
