@@ -1,7 +1,8 @@
 /**
  * Unattended Detroit → Jersey City strategy.
- * In-game pace is about five decades. Wall-clock pace is a short timer
- * (Zox.Autopilot.PACE) so the map can still be watched.
+ * The campaign is five decades. On screen, Autopilot holds every year
+ * (Zox.Autopilot.PACE) so the board, jar, farms, villages, and rail
+ * can be watched. Headless runs skip those delays.
  * Manual play never starts this controller.
  */
 (function (global) {
@@ -54,18 +55,40 @@
     "Jersey City",
   ];
 
-  /* Visible beats. A full run is meant to finish in well under a couple of minutes. */
+  /* Live beats. Each year is held (close, then the new year). A full run takes several minutes. */
   const PACE = {
-    announce: 900,
-    card: 420,
-    stage: 200,
-    buy: 180,
-    village: 360,
-    sell: 520,
-    rail: 200,
-    season: 80,
-    compost: 40,
+    announce: 1600,
+    card: 1100,
+    stage: 700,
+    buy: 600,
+    village: 1400,
+    sell: 1400,
+    rail: 900,
+    season: 400,
+    yearClose: 2400,
+    yearOpen: 3800,
+    compost: 250,
   };
+
+  function decisionTurnsYear(d) {
+    if (!d) return false;
+    if (d.kind === "season") return true;
+    if (d.kind === "buy" || d.kind === "row" || d.kind === "village" || d.kind === "rail") return d.affordable === false;
+    return false;
+  }
+
+  /* Wall-clock the live UI spends on one committed decision. Headless does not sleep. */
+  function watchMs(d) {
+    if (!d || d.kind === "done") return 0;
+    if (d.kind === "announce") return PACE.announce;
+    if ((d.kind === "buy" || d.kind === "row") && d.affordable) return PACE.card + PACE.stage + PACE.buy;
+    if (decisionTurnsYear(d)) return PACE.yearClose + PACE.yearOpen;
+    if (d.kind === "village") return PACE.village;
+    if (d.kind === "sell") return PACE.sell;
+    if (d.kind === "rail") return PACE.rail;
+    if (d.kind === "compost") return PACE.compost;
+    return PACE.season;
+  }
 
   function regionOf(name) {
     const keys = Object.keys(GROUPS).sort(function (a, b) {
@@ -326,6 +349,8 @@
         rowDoneSeason: null,
         railDoneSeason: null,
         commits: 0,
+        years: [],
+        watchMs: 0,
       },
     };
 
@@ -454,10 +479,23 @@
       }
     }
 
+    function yearStamp() {
+      const info = Zox.Sim.decadeInfo(state.season, state);
+      return "Year " + info.year + " of " + info.yearsTotal;
+    }
+
     function progressText() {
       const info = Zox.Sim.decadeInfo(state.season, state);
       return (
-        "Farms " +
+        "Year " +
+        info.year +
+        " of " +
+        info.yearsTotal +
+        " · Decade " +
+        info.decade +
+        " of " +
+        info.decades +
+        " · Farms " +
         mem.regenI +
         "/" +
         plan.regen.length +
@@ -472,9 +510,7 @@
         " · Rail " +
         mem.railI +
         "/" +
-        plan.segments +
-        " · " +
-        info.short
+        plan.segments
       );
     }
 
@@ -486,7 +522,11 @@
       state.autopilot.focusId = (decision && decision.parcelId) || "";
       state.autopilot.card = (decision && decision.card) || null;
       if (decision && decision.kind === "announce") state.autopilot.note = decision.text;
-      else if (decision && (decision.kind === "sell" || decision.kind === "village") && decision.note) {
+      else if (
+        decision &&
+        decision.note &&
+        (decision.kind === "sell" || decision.kind === "village" || decision.kind === "season" || decision.kind === "rail" || decision.affordable === false)
+      ) {
         state.autopilot.note = decision.note;
       }
     }
@@ -600,11 +640,12 @@
             farmId: rv.farm.id,
             lot: rv.lot,
             note:
-              "Eco-village at " +
+              yearStamp() +
+              ". Eco-village at " +
               rv.farm.name +
               " is ready, but the jar is short. Apartment rent is $" +
               Zox.LIC.income +
-              " a season. Turning the season.",
+              " a year. Closing the year.",
           };
           paint(d);
           return d;
@@ -644,7 +685,7 @@
           const d = {
             kind: "season",
             reason: "pace",
-            note: "Letting the decade turn before the next deed. Soil and rent keep working.",
+            note: yearStamp() + ". Rent and soil keep working before the next deed.",
           };
           paint(d);
           return d;
@@ -664,7 +705,7 @@
         const d = {
           kind: "season",
           reason: "maturity",
-          note: "Waiting out the five-season regen so the last eco-village can be built before the rail.",
+          note: yearStamp() + ". Waiting on regen so the last eco-village can open before the rail.",
         };
         paint(d);
         return d;
@@ -672,7 +713,7 @@
 
       if (mem.phase === "rail" && mem.railI < plan.segments) {
         if (mem.railThisSeason >= 2) {
-          const d = { kind: "season", reason: "pace", note: "The rail crew pauses for the season, then lays the next stretch." };
+          const d = { kind: "season", reason: "pace", note: yearStamp() + ". The rail crew pauses, then lays the next stretch." };
           paint(d);
           return d;
         }
@@ -686,7 +727,9 @@
               Zox.BUILDINGS.rail.cost +
               ". The jar has $" +
               state.money +
-              ". Waiting on apartment rent.",
+              ". Waiting on apartment rent. " +
+              yearStamp() +
+              ".",
           };
           paint(d);
           return d;
@@ -716,15 +759,17 @@
         return d;
       }
 
-      const d = { kind: "season", reason: "pace", note: "Turning the season. Rent and regen keep the plan moving." };
+      const d = { kind: "season", reason: "pace", note: yearStamp() + ". Rent and regen keep the plan moving." };
       paint(d);
       return d;
     }
 
     function runSeason() {
       if (state.status !== "playing") state.status = "playing";
+      const before = state.season;
       const res = Zox.Sim.runSeason(state);
       if (state.status !== "playing") state.status = "playing";
+      if (state.season === before + 1) mem.stats.years.push(state.season);
       return res;
     }
 
@@ -758,6 +803,7 @@
     function commit() {
       const d = peek();
       mem.stats.commits += 1;
+      mem.stats.watchMs += watchMs(d);
       if (d.kind === "announce") {
         mem.announced[d.phase] = true;
         mem.pendingAnnounce = null;
@@ -857,7 +903,7 @@
         season: state.season,
         decade: info.decade,
         decades: info.decades,
-        label: info.short,
+        label: "Year " + info.year + " of " + info.yearsTotal + " · Decade " + info.decade + " of " + info.decades,
         seasonsPlayed: Math.max(0, state.season - 1),
         phases: mem.stats.phases,
         cashWaits: mem.stats.cashWaits,
@@ -879,6 +925,9 @@
         health: state.health,
         status: state.status,
         commits: mem.stats.commits,
+        years: mem.stats.years.slice(),
+        estimatedWatchMs: mem.stats.watchMs,
+        estimatedWatchSec: Math.round(mem.stats.watchMs / 1000),
         builtRail: state.builtRail,
         villageSales: (state.villageBooks && state.villageBooks.sales) || 0,
         villageSaleCash: (state.villageBooks && state.villageBooks.saleCash) || 0,
@@ -899,5 +948,7 @@
     LABELS: LABELS,
     buildPlan: buildPlan,
     create: create,
+    decisionTurnsYear: decisionTurnsYear,
+    watchMs: watchMs,
   };
 })(typeof window !== "undefined" ? window : globalThis);

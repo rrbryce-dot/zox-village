@@ -3391,3 +3391,31 @@ h1 {
   font-family: Georgia, "Palatino Linotype", Palatino, serif;
   pointer-events: none;
 }
+
+/* Autopilot year clock — absolute year, held long enough to read. Manual play is unchanged. */
+html[data-ap-running="1"] .season {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  max-width: none;
+  line-height: 1.15;
+}
+html[data-ap-running="1"] .season.is-year-tick {
+  animation: year-tick 0.65s ease;
+}
+@keyframes year-tick {
+  0% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+html[data-ap-running="1"][data-year-tint="1"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(126, 200, 227, 0.55);
+}
+html[data-ap-running="1"][data-year-tint="2"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(242, 211, 27, 0.6);
+}
+html[data-ap-running="1"][data-year-tint="3"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(31, 157, 85, 0.55);
+}
+html[data-ap-running="1"][data-year-tint="4"] .board {
+  box-shadow: var(--shadow), inset 0 0 0 4px rgba(208, 120, 74, 0.55);
+}
