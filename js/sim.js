@@ -8,6 +8,15 @@
     return Math.max(lo, Math.min(hi, n));
   }
 
+  function usd(n) {
+    return Zox.dollars ? Zox.dollars(n) : "$" + n;
+  }
+
+  /* Toy-dollar literals that still sit in the season math. */
+  function bucks(n) {
+    return Math.round(Number(n) * (Zox.MONEY_SCALE || 1));
+  }
+
   function pushLog(state, text) {
     state.log.unshift({ season: state.season, text });
     if (state.log.length > 10) state.log.length = 10;
@@ -407,14 +416,14 @@
         cost: cost,
         need: 0,
         text:
-          "Jar $" +
-          money +
+          "Jar " +
+          usd(money) +
           " buys " +
           n +
           " more square" +
           (n === 1 ? "" : "s") +
-          " at $" +
-          cost +
+          " at " +
+          usd(cost) +
           ". Regen net buys the next farm sooner than the chem model.",
       };
     }
@@ -427,10 +436,10 @@
       need: need,
       seasons: seasons,
       text:
-        "Need $" +
-        need +
-        " more for the next square ($" +
-        cost +
+        "Need " +
+        usd(need) +
+        " more for the next square (" +
+        usd(cost) +
         ")." +
         (seasons ? " About " + seasons + " season" + (seasons === 1 ? "" : "s") + " of income." : ""),
     };
@@ -867,7 +876,7 @@
     if (getFarmByParcel(state, parcelId)) return { ok: false, why: "You already hold that deed. Open the card and walk the farm." };
     const def = Zox.BUILDINGS.farm;
     if (state.money < def.cost) {
-      return { ok: false, why: "Need $" + def.cost + ". The jar has $" + state.money + "." };
+      return { ok: false, why: "Need " + usd(def.cost) + ". The jar has " + usd(state.money) + "." };
     }
     return { ok: true, why: "", parcel: parcel };
   }
@@ -897,8 +906,8 @@
     pushLog(
       state,
       farm.name +
-        " is yours — 1 acre, $" +
-        def.cost +
+        " is yours — 1 acre, " +
+        usd(def.cost) +
         " from the jar." +
         (parcel.spine ? " It sits on the green rail." : "") +
         " Walk the fields. Rail farms mature " +
@@ -932,7 +941,7 @@
     const land = canBuildOn(tile);
     if (!land.ok) return land;
     if (state.money < def.cost) {
-      return { ok: false, why: "Need $" + def.cost + ". The jar has $" + state.money + "." };
+      return { ok: false, why: "Need " + usd(def.cost) + ". The jar has " + usd(state.money) + "." };
     }
     return { ok: true, why: "" };
   }
@@ -964,12 +973,12 @@
       village:
         "Eco-village at " +
         farm.name +
-        " — site work starts ($" +
-        def.cost +
-        "). Next seasons: framing, then open. Open villages lease $" +
-        worksSpec().lease +
-        " a season or sell for $" +
-        worksSpec().sale +
+        " — site work starts (" +
+        usd(def.cost) +
+        "). Next seasons: framing, then open. Open villages lease " +
+        usd(worksSpec().lease) +
+        " a season or sell for " +
+        usd(worksSpec().sale) +
         ". The station stays. The rail is not built yet.",
     };
     if (buildingId === "village" && !farm.villageWorks) {
@@ -1025,10 +1034,10 @@
       state,
       "Sold the open eco-village at " +
         farm.name +
-        " for $" +
-        price +
-        ". Build was $" +
-        Zox.BUILDINGS.village.cost +
+        " for " +
+        usd(price) +
+        ". Build was " +
+        usd(Zox.BUILDINGS.village.cost) +
         ". The station stays on the line. Lease stops. Upkeep stays."
     );
     return { ok: true, why: "", price: price };
@@ -1064,7 +1073,7 @@
     if (wasVillage && !Zox.Map.tilesOf(farm.tiles, "village").length) farm.villageWorks = null;
     state.money += refund;
     recountEnergyAndPeople(state);
-    pushLog(state, "Cleared a " + def.short.toLowerCase() + " on " + farm.name + ". $" + refund + " back in the jar.");
+    pushLog(state, "Cleared a " + def.short.toLowerCase() + " on " + farm.name + ". " + usd(refund) + " back in the jar.");
     return { ok: true, why: "" };
   }
 
@@ -1081,17 +1090,17 @@
         "Owner " + owner,
         acres + " acre" + (acres === 1 ? "" : "s"),
         books.mature ? "Zox regenerative — no chem bill." : books.label,
-        "Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net,
+        "Gross " + usd(books.gross) + " − chem " + usd(books.inputs) + " = net " + usd(books.net),
         "Open the deed card and walk this farm. Click the card for a picture. Improvements stay on its board.",
       ];
       if (farm.villageWorks && Zox.Map.tilesOf(farm.tiles, "village").length) {
         const spec = worksSpec();
         const w = farm.villageWorks;
-        if (w.sold) bits.push("Eco-village sold for $" + (w.sale || spec.sale) + ". Station stays. Lease stopped.");
-        else if (w.stage === "open") bits.push("Eco-village open. Lease $" + spec.lease + " a season, or sell for $" + spec.sale + ".");
+        if (w.sold) bits.push("Eco-village sold for " + usd(w.sale || spec.sale) + ". Station stays. Lease stopped.");
+        else if (w.stage === "open") bits.push("Eco-village open. Lease " + usd(spec.lease) + " a season, or sell for " + usd(spec.sale) + ".");
         else bits.push("Eco-village under construction: " + (w.stage === "framing" ? "framing" : "site") + ". Next it " + (w.stage === "framing" ? "opens" : "frames") + ".");
       } else if (parcel.spine && books.mature) {
-        bits.push("Named stop. Fund an eco-village here — $" + Zox.BUILDINGS.village.cost + " — then site, framing, open.");
+        bits.push("Named stop. Fund an eco-village here — " + usd(Zox.BUILDINGS.village.cost) + " — then site, framing, open.");
       }
       return { parcelId, parcel, farm, title: farm.name, lines: bits, owned: true };
     }
@@ -1102,7 +1111,7 @@
       title: parcel.name,
       lines: [
         "Owner " + owner + " — for sale",
-        acres + " acre · $" + cost,
+        acres + " acre · " + usd(cost),
         parcel.spine
           ? "Named square on the green rail. Mature it and the line can light."
           : "Farmland square. Pull the title deed, then move the card to Purchase.",
@@ -1130,7 +1139,7 @@
       else bits.push("Field on " + farm.name);
       const books = farmBooks(farm);
       bits.push(farm.name + " — " + books.label);
-      bits.push("Gross $" + books.gross + " − chem $" + books.inputs + " = net $" + books.net);
+      bits.push("Gross " + usd(books.gross) + " − chem " + usd(books.inputs) + " = net " + usd(books.net));
       if (tile.terrain === "water") bits.push("Leave the ditch. The farm drinks here.");
       if (tile.terrain === "grove" && !tile.building) bits.push("Standing grove. A little carbon credit each season.");
       if (nearCompost) bits.push("In compost range");
@@ -1229,7 +1238,7 @@
           state.health * 3 +
           leftover * 8 +
           rail.lit * 6 +
-          state.money * 0.1
+          (state.money * 0.1) / (Zox.MONEY_SCALE || 1)
       )
     );
   }
@@ -1347,9 +1356,9 @@
       const hasCompost = Zox.Map.tilesOf(farm.tiles, "compost").length > 0;
       const irrigated = Zox.Map.countTerrain(farm.tiles, "water") > 0;
       let pay = y.gross;
-      if (irrigated) pay += 3;
+      if (irrigated) pay += bucks(3);
       if (hasCompost) {
-        pay += 2;
+        pay += bucks(2);
         natureDelta += 1;
       }
       if (farmRail) pay = Math.round(pay * 1.35);
@@ -1373,7 +1382,7 @@
         : 1;
       wasteIn += def.waste * factor * (powered ? 1 : 1.15);
       streams.upkeep += def.upkeep;
-      if (powered) streams.other += 2;
+      if (powered) streams.other += bucks(2);
       if (Zox.Map.isConnected(Zox.Map.connectedSet(board), home.tile.r, home.tile.c)) happyDelta += 2;
       if (Zox.Map.hasNeighborBuilding(board, home.tile.r, home.tile.c, "park", 1)) happyDelta += 2;
       if (powered) happyDelta += 1;
@@ -1405,23 +1414,23 @@
     streams.credits += Math.min(groveCreditCap, groves.length * groveCredit);
 
     if (people >= 8 && unpowered === 0) {
-      streams.other += Math.floor(people / 4) * 2;
+      streams.other += Math.floor(people / 4) * bucks(2);
     }
 
-    if (energySupply < energyDemand) streams.other -= 4;
+    if (energySupply < energyDemand) streams.other -= bucks(4);
 
     const corridorRail = railProgress(state);
     if (corridorRail.lit > 0) happyDelta += corridorRail.lit;
     if (corridorRail.ready) {
-      streams.other += 6;
+      streams.other += bucks(6);
       happyDelta += 3;
     }
     const villageCount = buildingsOf(state, "village").length;
     if (villageCount > 0) {
-      streams.other += villageCount * 2;
+      streams.other += villageCount * bucks(2);
       happyDelta += villageCount;
       /* Eco-villages near regen farms hasten the corridor story */
-      streams.credits += villageCount;
+      streams.credits += villageCount * bucks(1);
     }
 
     const lease = villageLeaseDue(state);
@@ -1530,7 +1539,7 @@
     if (!flavor.length && state.farms.length === 0) {
       flavor.push("LIC rent landed from the city. Buy a deed on the corridor — then walk that farm.");
     }
-    if (!flavor.length && streams.crops >= 12) {
+    if (!flavor.length && streams.crops >= bucks(12)) {
       flavor.push("The crop check hit the jar and left a little for the next field along the rail.");
     }
     if (!flavor.length && sequestered >= Zox.GOAL.carbonMin) {
@@ -1540,9 +1549,9 @@
       flavor.push("People are healthier on regen food. Carbon this season: " + sequestered + ".");
     }
     if (streams.graze > 0 && !flavor.length) {
-      flavor.push("Crop rent from the animals — they ate the stubble and left manure. +$" + streams.graze + ".");
+      flavor.push("Crop rent from the animals — they ate the stubble and left manure. +" + usd(streams.graze) + ".");
     }
-    if (!flavor.length && streams.credits >= 4) {
+    if (!flavor.length && streams.credits >= bucks(4)) {
       flavor.push("Carbon credits $ from the living lots — separate from sequestration. Soil locked " + sequestered + " this season.");
     }
     if (hubs.length && wasteIn - wasteOut < 1) flavor.push("The heap ate the week's scraps.");

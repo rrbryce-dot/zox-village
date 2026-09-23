@@ -57,30 +57,24 @@
   function farmYearLine(s) {
     if (!s.converting.length) return "";
     return s.converting
-      .map((f) => "year " + f.year + " of " + f.need + " (net $" + f.net + " after $" + f.inputs + " chem)")
+      .map((f) => "year " + f.year + " of " + f.need + " (net " + Zox.dollars(f.net) + " after " + Zox.dollars(f.inputs) + " chem)")
       .join("; ");
   }
 
   function moneyReply(s) {
     if (!s.paid) {
       return (
-        "LIC rent is already coming from Long Island City — off this map, $" +
-        s.licRent +
-        " every season. It lands when you hit Next Season, not as a tile you place. The jar is $" +
-        s.money +
-        " in seed money. Buy farmland ($" +
-        s.farmCost +
+        "LIC rent is already coming from Long Island City — off this map, " + Zox.dollars(s.licRent) +
+        " every season. It lands when you hit Next Season, not as a tile you place. The jar is " + Zox.dollars(s.money) +
+        " in seed money. Buy farmland (" + Zox.dollars(s.farmCost) +
         ") on the corridor map along the dashed green rail. You walk that farm next — compost and rail go on the farm board, not the corridor. Long-term: convert, buy the next farm along the line, light the Detroit–Jersey City rail."
       );
     }
     if (s.farms === 0) {
       return (
-        "LIC rent $" +
-        (s.inc.apartments || s.licRent) +
-        " landed from the city. Last season net was $" +
-        (s.inc.net || 0) +
-        ". You do not drop an LIC building here. Buy farmland ($" +
-        s.farmCost +
+        "LIC rent " + Zox.dollars((s.inc.apartments || s.licRent)) +
+        " landed from the city. Last season net was " + Zox.dollars((s.inc.net || 0)) +
+        ". You do not drop an LIC building here. Buy farmland (" + Zox.dollars(s.farmCost) +
         ") on the corridor map, then walk that farm. That city capital is what the corridor farms are for."
       );
     }
@@ -92,14 +86,10 @@
         (s.farms > 1 ? "s" : "") +
         " still converting: " +
         farmYearLine(s) +
-        ". LIC rent $" +
-        (s.inc.apartments || s.licRent) +
-        " still arrives from the city. The chem bill eats most of the crop check — last season crops $" +
-        (s.inc.crops || 0) +
-        ", chem −$" +
-        (s.inc.inputs || 0) +
-        ", net $" +
-        (s.inc.net || 0) +
+        ". LIC rent " + Zox.dollars((s.inc.apartments || s.licRent)) +
+        " still arrives from the city. The chem bill eats most of the crop check — last season crops " + Zox.dollars((s.inc.crops || 0)) +
+        ", chem −" + Zox.dollars((s.inc.inputs || 0)) +
+        ", net " + Zox.dollars((s.inc.net || 0)) +
         ". When a farm matures, buy the next deed along the rail. Rail lit " +
         s.railLit +
         "/" +
@@ -109,52 +99,34 @@
     }
     if (s.inc.inputs > 0 && s.inc.cropGross && s.inc.inputs >= s.inc.cropGross * 0.4) {
       return (
-        "The crop check landed, then the chem bill took a bite. Last season: gross crops $" +
-        (s.inc.cropGross || 0) +
-        ", chem −$" +
-        s.inc.inputs +
-        ", crop net $" +
-        (s.inc.crops || 0) +
-        ", LIC rent $" +
-        (s.inc.apartments || 0) +
-        ", credits $" +
-        (s.inc.credits || 0) +
-        ", jar net $" +
-        (s.inc.net || 0) +
+        "The crop check landed, then the chem bill took a bite. Last season: gross crops " + Zox.dollars((s.inc.cropGross || 0)) +
+        ", chem −" + Zox.dollars(s.inc.inputs) +
+        ", crop net " + Zox.dollars((s.inc.crops || 0)) +
+        ", LIC rent " + Zox.dollars((s.inc.apartments || 0)) +
+        ", credits " + Zox.dollars((s.inc.credits || 0)) +
+        ", jar net " + Zox.dollars((s.inc.net || 0)) +
         ". Converting lots wean off fertilizer for five years. Then buy the next farm along the corridor."
       );
     }
-    if ((s.inc.net || 0) <= 2 && (s.inc.upkeep || 0) > (s.inc.crops || 0) + (s.inc.apartments || 0)) {
+    if ((s.inc.net || 0) <= 2 * (Zox.MONEY_SCALE || 1) && (s.inc.upkeep || 0) > (s.inc.crops || 0) + (s.inc.apartments || 0)) {
       return (
-        "Money came in and went back out. Last season upkeep was $" +
-        s.inc.upkeep +
-        " against crops $" +
-        (s.inc.crops || 0) +
-        ", LIC rent $" +
-        (s.inc.apartments || 0) +
-        ", credits $" +
-        (s.inc.credits || 0) +
-        ". Net $" +
-        (s.inc.net || 0) +
-        ". The jar is $" +
-        s.money +
+        "Money came in and went back out. Last season upkeep was " + Zox.dollars(s.inc.upkeep) +
+        " against crops " + Zox.dollars((s.inc.crops || 0)) +
+        ", LIC rent " + Zox.dollars((s.inc.apartments || 0)) +
+        ", credits " + Zox.dollars((s.inc.credits || 0)) +
+        ". Net " + Zox.dollars((s.inc.net || 0)) +
+        ". The jar is " + Zox.dollars(s.money) +
         ". Wait the fields out — regen drops the chem bill. Then buy the next parcel along the rail."
       );
     }
     return (
-      "You did earn. Last season: crops $" +
-      (s.inc.crops || 0) +
-      ", LIC rent $" +
-      (s.inc.apartments || 0) +
-      ", carbon credits $" +
-      (s.inc.credits || 0) +
-      (s.inc.inputs ? ", chem −$" + s.inc.inputs : "") +
-      ", net $" +
-      (s.inc.net || 0) +
-      ". The jar is $" +
-      s.money +
-      " now. Farmland is $" +
-      s.farmCost +
+      "You did earn. Last season: crops " + Zox.dollars((s.inc.crops || 0)) +
+      ", LIC rent " + Zox.dollars((s.inc.apartments || 0)) +
+      ", carbon credits " + Zox.dollars((s.inc.credits || 0)) +
+      (s.inc.inputs ? ", chem " + Zox.dollars(-s.inc.inputs) : "") +
+      ", net " + Zox.dollars((s.inc.net || 0)) +
+      ". The jar is " + Zox.dollars(s.money) +
+      " now. Farmland is " + Zox.dollars(s.farmCost) +
       ". City capital plus crops buy the next field along the corridor. Rail lit " +
       s.railLit +
       "/" +
@@ -178,8 +150,7 @@
         "."
       : " You haven't bought a field yet.";
     return (
-      "Buy farmland for $" +
-      s.farmCost +
+      "Buy farmland for " + Zox.dollars(s.farmCost) +
       " an acre. Click a mosaic square and the title deed pops — owner, acres, and price. Move the card from Don't buy it yet into Purchase only when the jar can cover it (apartment rent from Long Island City helps). You then walk that farm — compost, power, rail, orchards, and homes go on its board. For five seasons the farm is converting. At maturity the chem bill hits zero and neighboring rail squares light the corridor solid." +
       extra +
       (s.view === "farm" && s.farmName ? " You're on " + s.farmName + " now." : "") +
@@ -189,10 +160,9 @@
 
   function licReply(s) {
     return (
-      "The LIC green building already stands in Long Island City — not on this corridor. You cannot place it. Rent and royalties, $" +
-      s.licRent +
+      "The LIC green building already stands in Long Island City — not on this corridor. You cannot place it. Rent and royalties, " + Zox.dollars(s.licRent) +
       " a season, arrive on the income strip as LIC rent." +
-      (s.paid ? " Last season that line was $" + (s.inc.apartments || s.licRent) + "." : " Hit Next Season to see the first check.") +
+      (s.paid ? " Last season that line was " + Zox.dollars((s.inc.apartments || s.licRent)) + "." : " Hit Next Season to see the first check.") +
       " Loop: city capital → buy a farm along the corridor → walk it → five-year regen → crops buy the next farm along the rail."
     );
   }
@@ -215,24 +185,16 @@
     const r = rows[2];
     const deed = Zox.Sim.acresPerDeed();
     return (
-      "Traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals: $" +
-      t.gross +
-      " gross − $" +
-      t.inputs +
-      " chem = $" +
-      t.net +
+      "Traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, purchased seed, and irrigation chemicals: " + Zox.dollars(t.gross) +
+      " gross − " + Zox.dollars(t.inputs) +
+      " chem = " + Zox.dollars(t.net) +
       "/acre, nutrition 1×, carbon 0. Converting (year " +
       (c.year || 3) +
-      ") is down to a $" +
-      c.inputs +
-      " chem bill, net $" +
-      c.net +
-      ". Zox regen pays $0 on every one of those lines: $" +
-      r.gross +
-      " gross, net $" +
-      r.net +
-      "/acre, nutrition 6×, and animals graze the residue so manure and soil organic matter come back. A deed is $" +
-      deed.cost +
+      ") is down to a " + Zox.dollars(c.inputs) +
+      " chem bill, net " + Zox.dollars(c.net) +
+      ". Zox regen pays $0 on every one of those lines: " + Zox.dollars(r.gross) +
+      " gross, net " + Zox.dollars(r.net) +
+      "/acre, nutrition 6×, and animals graze the residue so manure and soil organic matter come back. A deed is " + Zox.dollars(deed.cost) +
       ". Regen net buys one every " +
       deed.regenAcres +
       " acre-seasons; traditional needs " +
@@ -263,8 +225,7 @@
       s.goal.healthMin +
       " (now " +
       s.health +
-      ") AND the jar stays above $0 (now $" +
-      s.money +
+      ") AND the jar stays above $0 (now " + Zox.dollars(s.money) +
       "). Health climbs because regenerative nutrition is " +
       (s.goal.nutritionFactor || 6) +
       "× traditional — converting years climb toward that (about 2×, 3×, 4×, 5×) before graduation hits 6×. Eco-villages on mature farms add health and rail stations. Soft loses: broke, waste disaster, or time out after four decades (" +
@@ -296,8 +257,7 @@
       s.carbonSeason +
       " (lifetime " +
       s.carbonTotal +
-      "). Carbon credits $ are a separate income line from living lots — last season $" +
-      (s.inc.credits || 0) +
+      "). Carbon credits $ are a separate income line from living lots — last season " + Zox.dollars((s.inc.credits || 0)) +
       ". Credits buy the next deed; sequestration wins the game."
     );
   }
@@ -334,8 +294,7 @@
 
   function fallback(s) {
     return (
-      "Ask me about money, farms, the rail, LIC, carbon sequestration, health / 6× nutrition, Traditional vs Zox, or the win score. Right now: jar $" +
-      s.money +
+      "Ask me about money, farms, the rail, LIC, carbon sequestration, health / 6× nutrition, Traditional vs Zox, or the win score. Right now: jar " + Zox.dollars(s.money) +
       ", season " +
       s.season +
       ", carbon this season " +
@@ -360,12 +319,9 @@
   function villageReply(s) {
     const works = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
     return (
-      "Eco-villages come from the porch book and sit at the named rail stops. Buy that farm, finish the five-season convert, then fund the village from the corridor strip — or place it on the farm board (tool Village, key 7). Cost $" +
-      ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.cost) || 52) +
-      ". Construction runs site, then framing, then open, one stage a season. An open village leases $" +
-      works.lease +
-      " a season into the jar, or you can sell it for $" +
-      works.sale +
+      "Eco-villages come from the porch book and sit at the named rail stops. Buy that farm, finish the five-season convert, then fund the village from the corridor strip — or place it on the farm board (tool Village, key 7). Cost " + Zox.dollars(((Zox.BUILDINGS.village && Zox.BUILDINGS.village.cost) || 52)) +
+      ". Construction runs site, then framing, then open, one stage a season. An open village leases " + Zox.dollars(works.lease) +
+      " a season into the jar, or you can sell it for " + Zox.dollars(works.sale) +
       ". The station stays either way. They add people, boost Health by " +
       ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.healthBoost) || 0) +
       " and nutrition by " +

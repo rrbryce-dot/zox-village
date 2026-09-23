@@ -72,7 +72,7 @@ if (sum.status !== "playing") errors.push("status " + sum.status);
 if (sum.money < 0) errors.push("broke");
 if ((sum.villageSales || 0) < 1) errors.push("expected a village sale, got " + sum.villageSales);
 if ((sum.villageLease || 0) < 1) errors.push("expected village lease income, got " + sum.villageLease);
-if ((sum.villageSaleCash || 0) < 84) errors.push("sale cash " + sum.villageSaleCash);
+if ((sum.villageSaleCash || 0) < Z.VILLAGE_WORKS.sale) errors.push("sale cash " + sum.villageSaleCash);
 if (sum.waste >= 96) errors.push("waste " + sum.waste);
 if (sum.nature <= 6) errors.push("nature " + sum.nature);
 const railPhase = sum.phases.find((p) => p.phase === "rail");

@@ -382,17 +382,17 @@
         bannerText = "Mature regen · chem $0 · graze the residue · manure stays · nutrition 6×";
       } else if (prog.year >= 5) {
         bannerText =
-          "Year 5 of 5 · chem −$" +
-          books.inputs +
+          "Year 5 of 5 · chem " +
+          (Zox.dollars ? Zox.dollars(-books.inputs) : "−$" + books.inputs) +
           " · next season graduates to $0 chem, 6× nutrition, and can light the rail";
       } else {
         bannerText =
           "Converting year " +
           prog.year +
-          " of 5 · chem −$" +
-          books.inputs +
-          " · net $" +
-          books.net +
+          " of 5 · chem " +
+          (Zox.dollars ? Zox.dollars(-books.inputs) : "−$" + books.inputs) +
+          " · net " +
+          (Zox.dollars ? Zox.dollars(books.net) : "$" + books.net) +
           "/acre · manure is starting to stay";
       }
     }
@@ -655,7 +655,7 @@
       const seller = Zox.Parcels && Zox.Parcels.deedOwner ? Zox.Parcels.deedOwner(parcel, farm) : "";
       const label = owned
         ? farm.name + (mature ? " · regenerative · " : " · converting " + prog.year + "/5 · ") + seller
-        : parcel.name + " · $" + cost + " · " + (parcel.acres || 1) + " acre · " + seller;
+        : parcel.name + " · " + (Zox.dollars ? Zox.dollars(cost) : "$" + cost) + " · " + (parcel.acres || 1) + " acre · " + seller;
       const rx = parcel.rx != null ? parcel.rx : parcel.x - 6;
       const ry = parcel.ry != null ? parcel.ry : parcel.y - 6;
       const rw = parcel.rw != null ? parcel.rw : 12;

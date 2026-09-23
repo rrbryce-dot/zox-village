@@ -265,8 +265,8 @@
         acres +
         "-acre deed from " +
         owner +
-        " for $" +
-        cost +
+        " for " +
+        Zox.dollars(cost) +
         " now, so the five-season regen can finish and an eco-village can stand here before any rail is laid.";
     } else if (entry.role === "cluster") {
       reason =
@@ -277,8 +277,8 @@
         owner +
         " still holds this " +
         acres +
-        "-acre square at $" +
-        cost +
+        "-acre square at " +
+        Zox.dollars(cost) +
         ". The rail stays a dashed line until the villages and the right-of-way are in.";
     } else {
       const a = entry.between ? entry.between[0] : "the corridor";
@@ -292,21 +292,21 @@
         acres +
         "-acre square from " +
         owner +
-        " ($" +
-        cost +
+        " (" +
+        Zox.dollars(cost) +
         ") is land the trains will cross — not a station. The line itself comes last.";
     }
     if (!affordable) {
       reason +=
-        " The jar has $" +
-        money +
-        ", short $" +
-        short +
-        ". Apartment rent from Long Island City is $" +
-        Zox.LIC.income +
+        " The jar has " +
+        Zox.dollars(money) +
+        ", short " +
+        Zox.dollars(short) +
+        ". Apartment rent from Long Island City is " +
+        Zox.dollars(Zox.LIC.income) +
         " a season, and crop rent lands when the season turns. Hold the card. No approval needed.";
     } else {
-      reason += " The jar can cover $" + cost + " this season, so buy it and move on.";
+      reason += " The jar can cover " + Zox.dollars(cost) + " this season, so buy it and move on.";
     }
     return {
       id: parcel.id,
@@ -436,7 +436,10 @@
       if (mem.soldOne || mem.stats.soldOne) return null;
       const sale = openUnsold();
       if (!sale) return null;
-      const spec = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
+      const spec = Zox.VILLAGE_WORKS || {
+        lease: 6 * (Zox.MONEY_SCALE || 1),
+        sale: 84 * (Zox.MONEY_SCALE || 1),
+      };
       const cost = Zox.BUILDINGS.village.cost;
       const stopName = sale.stop.mapLabel || sale.stop.name;
       return {
@@ -447,12 +450,12 @@
         note:
           "Selling the open eco-village at " +
           stopName +
-          " for $" +
-          spec.sale +
-          ". It cost $" +
-          cost +
-          " to build and leased $" +
-          spec.lease +
+          " for " +
+          Zox.dollars(spec.sale) +
+          ". It cost " +
+          Zox.dollars(cost) +
+          " to build and leased " +
+          Zox.dollars(spec.lease) +
           " a season while open. The station stays on the line. The rail is still a later phase.",
       };
     }
@@ -656,14 +659,17 @@
               yearStamp() +
               ". Eco-village at " +
               rv.farm.name +
-              " is ready, but the jar is short. Apartment rent is $" +
-              Zox.LIC.income +
+              " is ready, but the jar is short. Apartment rent is " +
+              Zox.dollars(Zox.LIC.income) +
               " a year. Closing the year.",
           };
           paint(d);
           return d;
         }
-        const spec = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
+        const spec = Zox.VILLAGE_WORKS || {
+        lease: 6 * (Zox.MONEY_SCALE || 1),
+        sale: 84 * (Zox.MONEY_SCALE || 1),
+      };
         const d = {
           kind: "village",
           affordable: true,
@@ -673,12 +679,12 @@
           note:
             "Funding the eco-village at the future " +
             (rv.stop.mapLabel || rv.stop.name) +
-            " stop. Build $" +
-            Zox.BUILDINGS.village.cost +
-            ". Site, then framing, then open. Once open it leases $" +
-            spec.lease +
-            " a season or sells for $" +
-            spec.sale +
+            " stop. Build " +
+            Zox.dollars(Zox.BUILDINGS.village.cost) +
+            ". Site, then framing, then open. Once open it leases " +
+            Zox.dollars(spec.lease) +
+            " a season or sells for " +
+            Zox.dollars(spec.sale) +
             ". The rail is still not built.",
         };
         paint(d);
@@ -736,10 +742,10 @@
             affordable: false,
             index: mem.railI,
             note:
-              "Next rail segment needs $" +
-              Zox.BUILDINGS.rail.cost +
-              ". The jar has $" +
-              state.money +
+              "Next rail segment needs " +
+              Zox.dollars(Zox.BUILDINGS.rail.cost) +
+              ". The jar has " +
+              Zox.dollars(state.money) +
               ". Waiting on apartment rent. " +
               yearStamp() +
               ".",
