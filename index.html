@@ -25,6 +25,7 @@
             <div id="decade-track" class="decade-track" aria-label="Four decades of seasons"></div>
           </div>
           <p id="food-note" class="food-note">Settlement is empty.</p>
+          <button type="button" id="autopilot" class="btn primary" aria-pressed="false">Start Autopilot</button>
           <button type="button" id="chat-toggle" class="btn ghost" aria-expanded="false" aria-controls="zox-chat">Ask ZOX</button>
           <button type="button" id="restart" class="btn ghost">Restart</button>
         </div>
@@ -123,6 +124,11 @@
         </aside>
 
         <main class="board">
+          <div id="autopilot-bar" class="autopilot-bar" hidden>
+            <p id="autopilot-phase" class="autopilot-phase"></p>
+            <p id="autopilot-progress" class="autopilot-progress"></p>
+            <p id="autopilot-note" class="autopilot-note"></p>
+          </div>
           <div class="board-bar">
             <div>
               <p id="view-title" class="view-title">Corridor map</p>
@@ -143,6 +149,7 @@
                 <h2>Title deeds</h2>
                 <p id="deed-jar" class="deed-jar">Click a square on the map.</p>
               </header>
+              <div id="deed-spotlight" class="deed-spotlight" hidden></div>
               <p id="deed-alert" class="deed-alert" role="alert" hidden></p>
               <div id="deed-owned" class="deed-owned" hidden></div>
               <div class="deed-cols">
@@ -339,6 +346,7 @@
     <script src="js/parcels.js"></script>
     <script src="js/map.js"></script>
     <script src="js/sim.js"></script>
+    <script src="js/autopilot.js"></script>
     <script src="js/render.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/help.js"></script>

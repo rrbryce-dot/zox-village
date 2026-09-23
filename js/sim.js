@@ -436,9 +436,10 @@
     };
   }
 
-  function decadeInfo(season) {
+  function decadeInfo(season, state) {
     const per = Zox.GOAL.seasonsPerDecade || 5;
-    const decades = Zox.GOAL.decades || 4;
+    const decades = (state && state.horizonDecades) || Zox.GOAL.decades || 4;
+    const yearsTotal = (state && state.horizonSeasons) || Zox.GOAL.seasons;
     const s = Math.max(1, season || 1);
     const decade = Math.min(decades, Math.ceil(s / per));
     const seasonInDecade = ((s - 1) % per) + 1;
@@ -450,7 +451,7 @@
       seasonInDecade: seasonInDecade,
       seasonsPerDecade: per,
       year: year,
-      yearsTotal: Zox.GOAL.seasons,
+      yearsTotal: yearsTotal,
       closing: closing,
       short: "Decade " + decade + " of " + decades + " · Year " + seasonInDecade + " of " + per,
       label:
@@ -465,7 +466,7 @@
         " · Year " +
         year +
         " of " +
-        Zox.GOAL.seasons,
+        yearsTotal,
     };
   }
 
@@ -545,7 +546,7 @@
 
   function seasonReportCard(state) {
     const finished = Math.max(1, (state.season || 1) - 1);
-    const decade = decadeInfo(finished);
+    const decade = decadeInfo(finished, state);
     const rows = farmModelRows(3);
     const trad = rows[0];
     const regen = rows[2];
@@ -1018,11 +1019,13 @@
   }
 
   function maybeEnd(state) {
+    /* Autopilot keeps the clock running through its own horizon. Manual play is unchanged. */
+    if (state && state.autopilotHold) return;
     const flags = evaluateGoals(state);
     if (goalsMet(flags)) {
       state.status = "won";
       state.wonOnSeason = Math.max(1, state.season - 1);
-      const wonDecade = decadeInfo(state.wonOnSeason);
+      const wonDecade = decadeInfo(state.wonOnSeason, state);
       state.endReason =
         Zox.COPY.win +
         " That happened in " +
@@ -1056,7 +1059,8 @@
       state.score = computeScore(state);
       return;
     }
-    if (state.season > Zox.GOAL.seasons) {
+    const seasonCap = (state && state.horizonSeasons) || Zox.GOAL.seasons;
+    if (state.season > seasonCap) {
       state.status = "lost";
       state.endReason = Zox.COPY.loseTime;
       state.score = computeScore(state);
@@ -1324,7 +1328,7 @@
     }
     if (state.nature >= 70 && state.waste <= 22 && !flavor.length) flavor.push("Creek's running clearer this week.");
     if (!flavor.length) flavor.push("Another season. Crops pay for the next field along the line. Carbon " + sequestered + " sequestered.");
-    const closed = decadeInfo(finishedSeason);
+    const closed = decadeInfo(finishedSeason, state);
     if (closed.closing) {
       const tally = decadeSlice(state.history, closed.decade);
       pushLog(
