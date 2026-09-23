@@ -144,6 +144,13 @@
           </div>
           <div class="board-split">
             <div id="grid" class="grid corridor-world" role="grid" aria-label="Detroit to Jersey City corridor"></div>
+            <section id="village-line" class="village-line" aria-label="Eco-villages along the rail">
+              <header class="village-line-head">
+                <h2>Eco-villages on the line</h2>
+                <p id="village-econ"></p>
+              </header>
+              <div id="village-cards" class="village-row"></div>
+            </section>
             <aside id="deed-board" class="deed-board" aria-label="Title deeds">
               <header class="deed-head">
                 <h2>Title deeds</h2>
@@ -253,11 +260,23 @@
         <p class="eyebrow">ZOX Village</p>
         <h2 id="intro-title">LIC rent. Corridor farms. Carbon + health win.</h2>
         <p>Song royalties already bought a green building in Long Island City — off this map. That apartment rent lands every season. The opening jar covers the first two acres. After that, <strong>net income buys more farmland</strong>.</p>
-        <p>This board is the aerial corridor from Detroit down toward Toledo and east to Jersey City, played across <strong>four decades</strong> (20 seasons). Every farmland square on the mosaic is for sale. Click one and its title deed pops: cost, the farmer who owns it, and the acres. Hold the card, or move it to Purchase when the jar can cover it. Five seasons convert a farm. Named squares along the dashed rail light solid when they mature. Eco-villages sit on mature regen farms. Compost, power, orchards, and homes go on the farm board — not on the corridor.</p>
+        <p>This board is the aerial corridor from Detroit down toward Toledo and east to Jersey City, played across <strong>four decades</strong> (20 seasons). Every farmland square on the mosaic is for sale. Click one and its title deed pops: cost, the farmer who owns it, and the acres. Hold the card, or move it to Purchase when the jar can cover it. Click a deed to see the farm. Five seasons convert a farm. Named squares along the dashed rail light solid when they mature. At those stops you can fund an eco-village: site, then framing, then open. An open village pays lease into the jar, or you can sell it — the station stays, and the rail is still built later. Compost, power, orchards, and homes stay on the farm board.</p>
         <p>The ledger is the reason to wait: traditional pays fertilizer, synthetic nitrogen, insecticides, herbicides, fungicides, diesel, seed, and irrigation chemicals. Regenerative pays <strong>$0</strong> for those, because animals graze the residue and manure stays. Nutrition is <strong>1× vs 6×</strong>. Net is <strong>$8 vs $16 per acre</strong>.</p>
         <p><strong>Win</strong> when one season sequesters enough <strong>carbon</strong> and <strong>population health</strong> is high enough. Decade 1 converts soil; the carbon gate needs a run of mature acres after that. Stay in the black. Soft fails: broke, waste disaster, or time runs out after four decades.</p>
         <p class="book-line intro-book">The story behind this board: <a class="book-link" href="https://www.amazon.com/Luckiest-Dog-Porch-Jacob-Westbrook/dp/B0F36LGDKG" target="_blank" rel="noopener noreferrer">The Luckiest Dog on the Porch on Amazon</a> (Jacob Westbrook).</p>
         <button type="button" id="play-now" class="btn primary">Sit down at the table</button>
+      </div>
+    </div>
+
+    <div id="farm-photo" class="veil farm-photo-veil" hidden role="dialog" aria-modal="true" aria-labelledby="farm-photo-title">
+      <div class="card farm-photo-card">
+        <div class="farm-photo-top">
+          <p class="eyebrow">The farm</p>
+          <button type="button" id="farm-photo-close" class="btn ghost">Close</button>
+        </div>
+        <h2 id="farm-photo-title">Farm</h2>
+        <div id="farm-photo-art" class="farm-photo-art"></div>
+        <p id="farm-photo-caption" class="farm-photo-caption"></p>
       </div>
     </div>
 

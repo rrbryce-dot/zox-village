@@ -358,14 +358,19 @@
 
   
   function villageReply(s) {
+    const works = Zox.VILLAGE_WORKS || { lease: 6, sale: 84 };
     return (
-      "Eco-villages come from the porch book. Place one on a mature regenerative farm (tool Village, key 7) — not on the corridor map, and not before the five-season convert finishes. Cost $" +
+      "Eco-villages come from the porch book and sit at the named rail stops. Buy that farm, finish the five-season convert, then fund the village from the corridor strip — or place it on the farm board (tool Village, key 7). Cost $" +
       ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.cost) || 52) +
-      ". They add people, boost Health by " +
+      ". Construction runs site, then framing, then open, one stage a season. An open village leases $" +
+      works.lease +
+      " a season into the jar, or you can sell it for $" +
+      works.sale +
+      ". The station stays either way. They add people, boost Health by " +
       ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.healthBoost) || 0) +
       " and nutrition by " +
       ((Zox.BUILDINGS.village && Zox.BUILDINGS.village.nutritionBoost) || 0) +
-      ", and put a station on the green rail (a readiness bump, on top of mature farms lighting the segments). Villages plus farms are how Detroit reaches Jersey City. You have " +
+      ", on top of mature farms lighting the segments. The rail line itself is built later. You have " +
       (s.villages != null ? s.villages : "?") +
       " now."
     );

@@ -29,7 +29,10 @@
       key += rail.lit + ":" + rail.ownedCount + ":" + rail.matureCount + ":";
       const farms = ui.state.farms || [];
       for (let i = 0; i < farms.length; i++) {
-        key += farms[i].parcelId + "A" + (farms[i].regenAge || 0) + ";";
+        const w = farms[i].villageWorks;
+        key += farms[i].parcelId + "A" + (farms[i].regenAge || 0);
+        if (w) key += w.stage + (w.sold ? "S" : "");
+        key += ";";
       }
       const deeds = (ui && ui.deeds) || [];
       for (let d = 0; d < deeds.length; d++) key += deeds[d].id + deeds[d].col + ";";
@@ -416,6 +419,148 @@
     return d;
   }
 
+  function hashStr(s) {
+    let h = 2166136261;
+    const text = String(s || "");
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function villagePinInner(stage, sold) {
+    if (stage === "site") {
+      return (
+        `<rect x="-8" y="1" width="16" height="5" rx="0.6" fill="#8a6232" stroke="#3a2410" stroke-width="0.6"/>` +
+        `<path d="M-6 1 V-5 M-2 1 V-7 M2 1 V-6 M6 1 V-4" stroke="#f4ead3" stroke-width="0.9" stroke-linecap="round"/>` +
+        `<text x="0" y="12" text-anchor="middle" font-size="5.2" font-weight="700" fill="#f6f1e4">site</text>`
+      );
+    }
+    if (stage === "framing") {
+      return (
+        `<path d="M-8 5 V-1 L0 -8 L8 -1 V5" fill="none" stroke="#f6e7c2" stroke-width="1.1"/>` +
+        `<path d="M-8 -1 L0 -8 L8 -1" fill="none" stroke="#6b4420" stroke-width="1.15"/>` +
+        `<path d="M0 -8 V5 M-8 2 H8" stroke="#f6e7c2" stroke-width="0.8"/>` +
+        `<text x="0" y="12" text-anchor="middle" font-size="5" font-weight="700" fill="#f6f1e4">frame</text>`
+      );
+    }
+    return (
+      `<path d="M-8 2 L0 -6 L8 2 V8 H-8 Z" fill="#e7f6c4" stroke="#1d4a22" stroke-width="0.7"/>` +
+      `<path d="M-8 2 L0 -6 L8 2" fill="#3f8a3a"/>` +
+      `<rect x="-2.2" y="3.2" width="4.4" height="4.8" fill="#6b4420"/>` +
+      (sold
+        ? `<text x="0" y="14" text-anchor="middle" font-size="5" font-weight="700" fill="#f6e7c2">sold</text>`
+        : `<text x="0" y="14" text-anchor="middle" font-size="5" font-weight="700" fill="#e7f6c4">open</text>`)
+    );
+  }
+
+  function villageStageSVG(stage, sold) {
+    const sky = stage === "open" ? "#c9dff0" : stage === "framing" ? "#e7d7b4" : "#d7c4a2";
+    const ground = stage === "open" ? "#6b8a49" : "#8a7048";
+    let body;
+    if (!stage) {
+      body =
+        `<rect x="8" y="28" width="72" height="10" fill="#c4b48a"/>` +
+        `<path d="M14 28 V18 M28 28 V16 M44 28 V20 M60 28 V17" stroke="#8a6232" stroke-width="2"/>`;
+    } else if (stage === "site") {
+      body =
+        `<rect x="10" y="30" width="68" height="8" fill="#6b4a28"/>` +
+        `<path d="M18 30 V14 M32 30 V10 M48 30 V16 M64 30 V12" stroke="#f4ead3" stroke-width="2.2" stroke-linecap="round"/>` +
+        `<rect x="22" y="22" width="18" height="8" fill="#a67c45" stroke="#3a2410"/>`;
+    } else if (stage === "framing") {
+      body =
+        `<path d="M12 32 V16 L44 6 L76 16 V32" fill="none" stroke="#5a3a18" stroke-width="2.4"/>` +
+        `<path d="M12 16 L44 6 L76 16" fill="none" stroke="#8a3d2a" stroke-width="2"/>` +
+        `<path d="M44 6 V32 M12 24 H76 M28 16 V32 M60 16 V32" stroke="#c4a15a" stroke-width="1.4"/>`;
+    } else {
+      body =
+        `<path d="M10 32 V18 L44 6 L78 18 V32 Z" fill="#f4ead3" stroke="#1d4a22" stroke-width="1.4"/>` +
+        `<path d="M10 18 L44 6 L78 18" fill="#3f8a3a" stroke="#1d4a22"/>` +
+        `<rect x="38" y="22" width="12" height="10" fill="#6b4420"/>` +
+        `<rect x="20" y="20" width="8" height="7" fill="#7ec8d4"/>` +
+        `<rect x="60" y="20" width="8" height="7" fill="#7ec8d4"/>` +
+        (sold ? `<text x="44" y="46" text-anchor="middle" font-size="9" font-weight="700" fill="#3a2410">SOLD</text>` : `<circle cx="70" cy="12" r="4" fill="#f2d31b"/>`);
+    }
+    return (
+      `<svg class="v-stage" viewBox="0 0 88 48" aria-hidden="true">` +
+      `<rect width="88" height="48" fill="${sky}"/>` +
+      `<rect y="32" width="88" height="16" fill="${ground}"/>` +
+      body +
+      `</svg>`
+    );
+  }
+
+  function fieldColor(stageKey) {
+    if (stageKey === "regen") return "#3e7a34";
+    if (stageKey === "y5") return "#5c8a3c";
+    if (stageKey === "y4") return "#6e9440";
+    if (stageKey === "y3") return "#8ea24a";
+    if (stageKey === "y2") return "#b59a48";
+    if (stageKey === "y1") return "#a67c45";
+    return "#c6b07a";
+  }
+
+  function farmPortrait(spec) {
+    const region = (Zox.regionLook && Zox.regionLook(spec.name)) || { id: "Erie", sky: "#f8c48a", hill: "#6b8440", barn: "#e07a1f" };
+    const h = hashStr((spec.id || "") + "|" + (spec.owner || "") + "|" + region.id);
+    const stageKey = spec.stage || "wild";
+    const field = fieldColor(stageKey);
+    const year = stageKey === "regen" ? 6 : stageKey === "wild" ? 0 : Number(String(stageKey).replace("y", "")) || 0;
+    const barnX = 28 + (h % 48);
+    const treeN = 2 + (h % 4);
+    const sunX = 40 + ((h >> 4) % 200);
+    let trees = "";
+    for (let i = 0; i < treeN; i++) {
+      const tx = 16 + ((h >> (i + 2)) % 280);
+      const th = 16 + ((h >> (i + 5)) % 14);
+      const leaf = year >= 4 ? "#2f6a32" : year >= 2 ? "#4f7a38" : "#5a6a32";
+      trees += `<rect x="${tx}" y="${92 - th}" width="4" height="${th}" fill="#6b4420"/>`;
+      trees += `<circle cx="${tx + 2}" cy="${90 - th}" r="${7 + (i % 3)}" fill="${leaf}"/>`;
+    }
+    let rows = "";
+    const furrow = year <= 1 ? "#6b4a28" : year <= 3 ? "#5a6a30" : "#2f5a28";
+    if (year < 6) {
+      for (let i = 0; i < 7; i++) {
+        rows += `<path d="M0 ${118 + i * 7} H320" stroke="${furrow}" stroke-width="${year <= 1 ? 2 : 1}" opacity="${year >= 5 ? 0.25 : 0.55}"/>`;
+      }
+    }
+    let animals = "";
+    if (year >= 4) {
+      const ax = 180 + (h % 60);
+      animals += `<ellipse cx="${ax}" cy="132" rx="16" ry="8" fill="#c4a06a"/>`;
+      animals += `<circle cx="${ax + 14}" cy="126" r="5" fill="#b89058"/>`;
+      if (year >= 6) {
+        animals += `<ellipse cx="${ax - 28}" cy="138" rx="12" ry="6" fill="#e8e0d0"/>`;
+        animals += `<circle cx="${ax + 8}" cy="146" r="2.2" fill="#4a2a14"/>`;
+        animals += `<circle cx="${ax + 18}" cy="144" r="1.6" fill="#4a2a14"/>`;
+      }
+    }
+    const rail = spec.spine
+      ? `<path d="M0 104 H320" stroke="#d7e6c8" stroke-width="2" stroke-dasharray="6 4"/><path d="M0 108 H320" stroke="#6b8a49" stroke-width="1" stroke-dasharray="6 4"/>`
+      : "";
+    const shoots = year >= 2 && year < 6 ? `<path d="M40 128 q6-16 12 0 M70 136 q5-14 10 0 M210 130 q6-18 12 0 M250 140 q5-12 11 0" fill="none" stroke="#2f6a32" stroke-width="1.6"/>` : "";
+    const label = spec.name || "Farm";
+    return (
+      `<svg class="farm-portrait" viewBox="0 0 320 180" role="img" aria-label="${label}">` +
+      `<rect width="320" height="180" fill="${region.sky}"/>` +
+      `<circle cx="${sunX}" cy="32" r="14" fill="#fff4c8"/>` +
+      `<path d="M0 86 Q70 62 150 80 T320 70 V112 H0 Z" fill="${region.hill}"/>` +
+      trees +
+      rail +
+      `<rect y="108" width="320" height="72" fill="${field}"/>` +
+      rows +
+      shoots +
+      `<rect x="${barnX}" y="96" width="46" height="36" fill="${region.barn}" stroke="#2a1c10" stroke-width="1.2"/>` +
+      `<path d="M${barnX - 4} 96 L${barnX + 23} 76 L${barnX + 50} 96" fill="#8a3d2a" stroke="#2a1c10"/>` +
+      `<rect x="${barnX + 18}" y="112" width="12" height="20" fill="#3a2410"/>` +
+      `<rect x="${barnX + 6}" y="104" width="8" height="7" fill="#f4ead3"/>` +
+      animals +
+      `<rect y="164" width="320" height="16" fill="rgba(20,16,8,0.18)"/>` +
+      `</svg>`
+    );
+  }
+
   function corridorHTML(ui) {
     const C = Zox.CORRIDOR;
     const rail = Zox.Sim.railProgress(ui.state);
@@ -492,12 +637,15 @@
       const owned = !!farm;
       const mature = owned && Zox.Sim.farmMature(farm);
       const hasVillage = owned && farm.tiles && Zox.Map.tilesOf(farm.tiles, "village").length > 0;
+      const works = hasVillage ? farm.villageWorks : null;
+      const vStage = hasVillage ? (works && works.stage) || "site" : "";
+      const vSold = !!(works && works.sold);
       const prog = owned ? Zox.Sim.farmProgress(farm) : null;
       const sel = ui.selected && ui.selected.parcelId === parcel.id;
       let cls = "corridor-parcel parcel-lot";
       if (owned) cls += mature ? " is-owned is-mature" : " is-owned is-y" + prog.year;
       else cls += " is-open";
-      if (hasVillage) cls += " has-village";
+      if (hasVillage) cls += " has-village is-v-" + vStage + (vSold ? " is-v-sold" : "");
       if (parcel.spine) cls += " is-spine";
       if (futureStops[parcel.id] && !hasVillage) cls += " is-future-stop";
       if (focusId && focusId === parcel.id) cls += " is-focus";
@@ -527,12 +675,11 @@
         );
       }
       if (hasVillage) {
-        const vx = rx + rw - 1;
-        const vy = ry + 1;
+        const vx = rx + rw * 0.5;
+        const vy = ry + rh * 0.55;
         pinParts.push(
-          `<g class="village-pin" transform="translate(${vx} ${vy}) scale(0.55)" aria-hidden="true">` +
-            `<path d="M-7 2 L0 -6 L7 2 V8 H-7 Z" fill="#e7f6c4" stroke="#1d4a22" stroke-width="0.8"/>` +
-            `<path d="M-7 2 L0 -6 L7 2" fill="#3f8a3a"/>` +
+          `<g class="village-pin is-${vStage}${vSold ? " is-sold" : ""}" transform="translate(${vx} ${vy})" aria-hidden="true">` +
+            villagePinInner(vStage, vSold) +
             `</g>`
         );
       }
@@ -632,5 +779,7 @@
     corridorHTML,
     syncFlags,
     stageSize,
+    farmPortrait,
+    villageStageSVG,
   };
 })(window);
