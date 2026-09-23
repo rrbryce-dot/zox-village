@@ -55,21 +55,22 @@
     "Jersey City",
   ];
 
-  /* Live beats. Each year is held (close, then the new year). A full run takes several minutes. */
+  /* Live beats. Tuned so a person can read each line. Headless does not sleep. */
   const PACE = {
-    announce: 1600,
-    card: 1100,
-    stage: 700,
-    buy: 600,
-    village: 1400,
-    sell: 1400,
-    rail: 900,
-    season: 400,
-    yearClose: 2400,
-    yearOpen: 3800,
-    greatJob: 6500,
-    mapOverview: 4500,
-    compost: 250,
+    announce: 4000,
+    card: 2000,
+    stage: 1600,
+    buy: 1800,
+    village: 2000,
+    sell: 2000,
+    rail: 1800,
+    season: 2000,
+    yearClose: 3000,
+    yearOpen: 3500,
+    greatJob: 10000,
+    mapOverview: 7000,
+    compost: 1500,
+    settle: 1800,
   };
 
   function decisionTurnsYear(d) {
@@ -82,7 +83,7 @@
   /* Wall-clock the live UI spends on one committed decision. Headless does not sleep. */
   function watchMs(d, state) {
     if (!d || d.kind === "done") return 0;
-    if (d.kind === "announce") return PACE.announce;
+    if (d.kind === "announce") return PACE.announce + PACE.settle;
     if ((d.kind === "buy" || d.kind === "row") && d.affordable) return PACE.card + PACE.stage + PACE.buy;
     if (decisionTurnsYear(d)) {
       let ms = PACE.yearClose + PACE.yearOpen;
@@ -94,11 +95,11 @@
       }
       return ms;
     }
-    if (d.kind === "village") return PACE.village;
-    if (d.kind === "sell") return PACE.sell;
-    if (d.kind === "rail") return PACE.rail;
-    if (d.kind === "compost") return PACE.compost;
-    return PACE.season;
+    if (d.kind === "village") return PACE.village + PACE.settle;
+    if (d.kind === "sell") return PACE.sell + PACE.settle;
+    if (d.kind === "rail") return PACE.rail + PACE.settle;
+    if (d.kind === "compost") return PACE.compost + PACE.settle;
+    return PACE.season + PACE.settle;
   }
 
   function regionOf(name) {

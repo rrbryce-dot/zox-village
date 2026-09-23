@@ -1125,12 +1125,12 @@
 
     function autopilotPace(kind) {
       const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
-      if (kind === "announce") return P.announce || 1600;
-      if (kind === "village") return P.village || 1400;
-      if (kind === "sell") return P.sell || 1400;
-      if (kind === "rail") return P.rail || 900;
-      if (kind === "compost") return P.compost || 250;
-      return P.season || 400;
+      if (kind === "announce") return P.announce || 4000;
+      if (kind === "village") return P.village || 2000;
+      if (kind === "sell") return P.sell || 2000;
+      if (kind === "rail") return P.rail || 1800;
+      if (kind === "compost") return P.compost || 1500;
+      return P.season || 2000;
     }
 
     function narrateYear(text) {
@@ -1261,14 +1261,14 @@
       narrateYear(yearOpenLine());
       render();
       const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
-      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3800);
+      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3500);
     }
 
     function beginMapOverview(reason) {
       showMapOverview(reason);
       ui.apBeat = "map";
       const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
-      ui.apTimer = window.setTimeout(finishMapOverview, P.mapOverview || 4500);
+      ui.apTimer = window.setTimeout(finishMapOverview, P.mapOverview || 7000);
     }
 
     function resumeAfterGreatJob() {
@@ -1287,14 +1287,14 @@
       if (job) {
         showGreatJob(job);
         ui.apBeat = "great-job";
-        ui.apTimer = window.setTimeout(resumeAfterGreatJob, P.greatJob || 6500);
+        ui.apTimer = window.setTimeout(resumeAfterGreatJob, P.greatJob || 10000);
         return;
       }
       if (ui.state.season > 1 && ui.state.season % 4 === 0) {
         beginMapOverview("year");
         return;
       }
-      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3800);
+      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3500);
     }
 
     function finishAutopilot() {
@@ -1335,13 +1335,13 @@
           ui.selected = { parcelId: d.parcelId };
           ui.boardKey = "";
           render();
-          ui.apTimer = window.setTimeout(kickAutopilot, P.card || 1100);
+          ui.apTimer = window.setTimeout(kickAutopilot, P.card || 2000);
           return;
         }
         if (ui.apBeat === "show") {
           ui.apBeat = "stage";
           render();
-          ui.apTimer = window.setTimeout(kickAutopilot, P.stage || 700);
+          ui.apTimer = window.setTimeout(kickAutopilot, P.stage || 1600);
           return;
         }
         const before = ui.state.season;
@@ -1353,7 +1353,7 @@
         render();
         pulseMap();
         if (ui.state.season !== before) holdAfterYear(before);
-        else ui.apTimer = window.setTimeout(kickAutopilot, P.buy || 600);
+        else ui.apTimer = window.setTimeout(kickAutopilot, P.buy || 1800);
         return;
       }
       if (turnsYear && ui.apBeat !== "year-close") {
@@ -1371,7 +1371,7 @@
         if (extra.indexOf(prefix) === 0) extra = extra.slice(prefix.length);
         narrateYear("Closing year " + info.year + " of " + info.yearsTotal + ". " + extra);
         render();
-        ui.apTimer = window.setTimeout(kickAutopilot, P.yearClose || 2400);
+        ui.apTimer = window.setTimeout(kickAutopilot, P.yearClose || 3000);
         return;
       }
       if (ui.apBeat === "year-close") {
@@ -1409,7 +1409,7 @@
           holdAfterYear(before);
           return;
         }
-        kickAutopilot();
+        ui.apTimer = window.setTimeout(kickAutopilot, P.settle || 1800);
       }, wait);
     }
 
