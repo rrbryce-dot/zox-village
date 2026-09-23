@@ -68,6 +68,7 @@
     yearClose: 2400,
     yearOpen: 3800,
     greatJob: 6500,
+    mapOverview: 4500,
     compost: 250,
   };
 
@@ -85,7 +86,12 @@
     if ((d.kind === "buy" || d.kind === "row") && d.affordable) return PACE.card + PACE.stage + PACE.buy;
     if (decisionTurnsYear(d)) {
       let ms = PACE.yearClose + PACE.yearOpen;
-      if (state && Zox.Sim && Zox.Sim.decadeInfo(state.season, state).closing) ms += PACE.greatJob;
+      if (state && Zox.Sim) {
+        const info = Zox.Sim.decadeInfo(state.season, state);
+        const nextYear = state.season + 1;
+        if (info.closing) ms += PACE.greatJob + PACE.mapOverview;
+        else if (nextYear % 4 === 0) ms += PACE.mapOverview;
+      }
       return ms;
     }
     if (d.kind === "village") return PACE.village;

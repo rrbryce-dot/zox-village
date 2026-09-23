@@ -3454,3 +3454,35 @@ html[data-ap-running="1"][data-year-tint="3"] .board {
 html[data-ap-running="1"][data-year-tint="4"] .board {
   box-shadow: var(--shadow), inset 0 0 0 4px rgba(208, 120, 74, 0.55);
 }
+
+/* Autopilot corridor overview — map fills the board; deeds and side panels step aside. */
+html[data-map-overview="1"] .story-dock,
+html[data-map-overview="1"] .notes,
+html[data-map-overview="1"] #village-line,
+html[data-map-overview="1"] #deed-board {
+  display: none !important;
+}
+html[data-map-overview="1"] .play {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: "board" !important;
+}
+html[data-map-overview="1"] .board {
+  min-height: calc(100dvh - 108px);
+}
+html[data-map-overview="1"] #grid.corridor-world {
+  min-height: calc(100dvh - 230px) !important;
+  height: calc(100dvh - 230px) !important;
+}
+html[data-map-overview="1"] .corridor-stage,
+html[data-map-overview="1"] .corridor-map {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+}
+.board.is-map-pulse .corridor-map {
+  animation: map-pulse 0.9s ease;
+}
+@keyframes map-pulse {
+  0% { box-shadow: 0 0 0 5px #e2c56a; }
+  100% { box-shadow: inset 0 0 0 1px rgba(244, 234, 211, 0.35), 0 4px 14px rgba(40, 50, 20, 0.14); }
+}

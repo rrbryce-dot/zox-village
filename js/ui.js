@@ -1113,6 +1113,7 @@
       }
       ui.apBeat = "";
       hideGreatJob();
+      hideMapOverview();
       if (!finished && ui.state.autopilot) {
         ui.state.autopilot.on = false;
         ui.state.autopilotHold = false;
@@ -1218,6 +1219,58 @@
       if (card) card.hidden = true;
     }
 
+    function pulseMap() {
+      const board = document.querySelector(".board");
+      if (!board) return;
+      board.classList.remove("is-map-pulse");
+      void board.offsetWidth;
+      board.classList.add("is-map-pulse");
+      const grid = el("grid");
+      if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+
+    function showMapOverview(reason) {
+      document.documentElement.dataset.mapOverview = "1";
+      ui.view = "world";
+      ui.farmId = null;
+      const sub = el("view-sub");
+      if (sub) sub.textContent = "Overview — Detroit to Jersey City. Farms, eco-villages, right-of-way, and the rail.";
+      const why =
+        reason === "decade"
+          ? "Corridor overview. This decade is on the map — farms, villages, right-of-way, and rail."
+          : "Corridor overview. Detroit to Jersey City — farms, eco-villages, right-of-way, and rail.";
+      narrateYear(why);
+      const note = el("autopilot-note");
+      if (note) note.textContent = why;
+      const grid = el("grid");
+      if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: "center", inline: "nearest" });
+    }
+
+    function hideMapOverview() {
+      delete document.documentElement.dataset.mapOverview;
+    }
+
+    function finishMapOverview() {
+      if (ui.apTimer) {
+        clearTimeout(ui.apTimer);
+        ui.apTimer = 0;
+      }
+      hideMapOverview();
+      if (!ui.apOn || !ui.ap) return;
+      ui.apBeat = "";
+      narrateYear(yearOpenLine());
+      render();
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3800);
+    }
+
+    function beginMapOverview(reason) {
+      showMapOverview(reason);
+      ui.apBeat = "map";
+      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
+      ui.apTimer = window.setTimeout(finishMapOverview, P.mapOverview || 4500);
+    }
+
     function resumeAfterGreatJob() {
       if (ui.apTimer) {
         clearTimeout(ui.apTimer);
@@ -1225,9 +1278,7 @@
       }
       hideGreatJob();
       if (!ui.apOn || !ui.ap) return;
-      ui.apBeat = "";
-      const P = (Zox.Autopilot && Zox.Autopilot.PACE) || {};
-      ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3800);
+      beginMapOverview("decade");
     }
 
     function holdAfterYear(before) {
@@ -1237,6 +1288,10 @@
         showGreatJob(job);
         ui.apBeat = "great-job";
         ui.apTimer = window.setTimeout(resumeAfterGreatJob, P.greatJob || 6500);
+        return;
+      }
+      if (ui.state.season > 1 && ui.state.season % 4 === 0) {
+        beginMapOverview("year");
         return;
       }
       ui.apTimer = window.setTimeout(kickAutopilot, P.yearOpen || 3800);
@@ -1262,7 +1317,7 @@
 
     function kickAutopilot() {
       if (!ui.apOn || !ui.ap) return;
-      if (ui.apBeat === "great-job") return;
+      if (ui.apBeat === "great-job" || ui.apBeat === "map") return;
       const d = ui.ap.peek();
       if (!d || d.kind === "done") {
         if (d && ui.ap) ui.ap.commit();
@@ -1296,6 +1351,7 @@
         ui.boardKey = "";
         if (ui.state.season !== before) narrateYear(yearOpenLine());
         render();
+        pulseMap();
         if (ui.state.season !== before) holdAfterYear(before);
         else ui.apTimer = window.setTimeout(kickAutopilot, P.buy || 600);
         return;
@@ -1348,6 +1404,7 @@
         ui.boardKey = "";
         if (ui.state.season !== before) narrateYear(yearOpenLine());
         render();
+        if (d.kind === "village" || d.kind === "rail" || d.kind === "buy" || d.kind === "row") pulseMap();
         if (ui.state.season !== before) {
           holdAfterYear(before);
           return;
